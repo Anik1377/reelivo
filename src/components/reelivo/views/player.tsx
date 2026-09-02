@@ -36,13 +36,15 @@ export function PlayerView({
   const saveProgress = useReelivo((g) => g.saveProgress);
   const setLastEpisode = useReelivo((g) => g.setLastEpisode);
   const pushRecent = useReelivo((g) => g.pushRecent);
+  const logHistory = useReelivo((g) => g.logHistory);
 
   // remember where a series was left, regardless of entry point
   useEffect(() => {
     if (type === "tv") setLastEpisode(id, s, e);
   }, [type, id, s, e]);
 
-  // journal entry once we know the title
+  // journal entry once we know the title — recents feed the hero rail,
+  // history is the per-profile playback ledger (progress messages keep it fresh)
   useEffect(() => {
     if (detail.data) {
       const d = detail.data;
@@ -51,6 +53,15 @@ export function PlayerView({
         title: labelOf(d),
       };
       pushRecent(item);
+      const prior = useReelivo.getState().getProgress(id, type, s, e);
+      logHistory(
+        {
+          ...item,
+          season: type === "tv" ? s : undefined,
+          episode: type === "tv" ? e : undefined,
+        },
+        prior && prior.duration > 0 ? prior.timestamp / prior.duration : 0
+      );
     }
   }, [detail.data?.id, type]);
 

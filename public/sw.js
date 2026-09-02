@@ -9,7 +9,7 @@
  * The worker is registered only in production (see app.tsx) so dev HMR is untouched.
  */
 
-const VERSION = "reelivo-v1";
+const VERSION = "reelivo-v2";
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -18,6 +18,7 @@ const PRECACHE = [
   "/manifest.webmanifest",
   "/icon-192.png",
   "/icon-512.png",
+  "/icon-maskable-512.png",
   "/favicon-32.png",
   "/apple-touch-icon.png",
 ];

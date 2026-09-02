@@ -1,21 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import {
-  Cat,
-  Clapperboard,
-  Drama,
-  Ghost,
-  Pencil,
-  Plus,
-  Popcorn,
-  Rocket,
-  Star,
-  Ticket,
-  UserRound,
-} from "lucide-react";
+import { LockKeyhole, Pencil, Plus, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { useReelivo, type Profile } from "@/lib/store";
+import { isFourDigits, pinHash } from "@/lib/pin";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,18 +22,19 @@ import type { Paged, MediaItem } from "@/lib/tmdb-types";
 import { GlassLens } from "./liquid-glass";
 
 /* -------------------------------- avatars ---------------------------------- */
-/* Eight built-ins — gradient pair + glyph. No uploads, nothing personal
- * leaves the device; a gradient keeps the Who's-watching wall readable. */
+/* Eight built-in character portraits (public/avatars) — friendly faces in the
+ * spirit of Prime-style profile walls, drawn as one cohesive set. Each keeps
+ * a gradient twin as the loading/fallback skin so tiles never flash empty. */
 
-export const AVATARS: { icon: typeof Clapperboard; tile: string; ring: string }[] = [
-  { icon: Clapperboard, tile: "from-[#0ea5c6] to-[#0b5a72]", ring: "ring-[#22d3ee]/45" },
-  { icon: Popcorn, tile: "from-amber-400 to-amber-700", ring: "ring-amber-300/45" },
-  { icon: Rocket, tile: "from-rose-400 to-rose-700", ring: "ring-rose-300/45" },
-  { icon: Ghost, tile: "from-violet-400 to-violet-700", ring: "ring-violet-300/45" },
-  { icon: Cat, tile: "from-emerald-400 to-emerald-700", ring: "ring-emerald-300/45" },
-  { icon: Ticket, tile: "from-orange-400 to-red-600", ring: "ring-orange-300/45" },
-  { icon: Star, tile: "from-lime-400 to-lime-700", ring: "ring-lime-300/45" },
-  { icon: Drama, tile: "from-fuchsia-400 to-fuchsia-700", ring: "ring-fuchsia-300/45" },
+export const AVATARS: { src: string; label: string; tile: string }[] = [
+  { src: "/avatars/av-1.png", label: "Popcorn buddy", tile: "from-[#0ea5c6] to-[#0b5a72]" },
+  { src: "/avatars/av-2.png", label: "Director buddy", tile: "from-amber-400 to-amber-700" },
+  { src: "/avatars/av-3.png", label: "Astro cat", tile: "from-emerald-400 to-emerald-700" },
+  { src: "/avatars/av-4.png", label: "Retro robot", tile: "from-cyan-400 to-cyan-700" },
+  { src: "/avatars/av-5.png", label: "Cozy ghost", tile: "from-violet-400 to-violet-700" },
+  { src: "/avatars/av-6.png", label: "Cinema fox", tile: "from-orange-400 to-red-600" },
+  { src: "/avatars/av-7.png", label: "Sleepy sloth", tile: "from-lime-400 to-lime-700" },
+  { src: "/avatars/av-8.png", label: "Curious alien", tile: "from-fuchsia-400 to-fuchsia-700" },
 ];
 
 const avatarOf = (p: Profile | undefined) =>
@@ -53,20 +43,27 @@ const avatarOf = (p: Profile | undefined) =>
 export function ProfileAvatar({
   profile,
   className = "size-8",
-  iconClassName = "size-4",
 }: {
   profile: Profile | undefined;
   className?: string;
-  iconClassName?: string;
 }) {
+  if (!profile) {
+    return (
+      <span
+        aria-hidden
+        className={`grid shrink-0 place-items-center rounded-full bg-white/[0.08] text-white/50 ${className}`}
+      >
+        <UserRound className="size-1/2" />
+      </span>
+    );
+  }
   const av = avatarOf(profile);
-  const Icon = profile ? av.icon : UserRound;
   return (
     <span
       aria-hidden
-      className={`grid shrink-0 place-items-center rounded-full bg-gradient-to-br text-white ${av.tile} ${className}`}
+      className={`relative block shrink-0 overflow-hidden rounded-full bg-gradient-to-br ${av.tile} ${className}`}
     >
-      <Icon className={iconClassName} />
+      <img src={av.src} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" />
     </span>
   );
 }
@@ -104,6 +101,235 @@ const editorServer = () => null;
 
 function useProfileEditor(): EditorRequest {
   return useSyncExternalStore(subscribeEditor, editorSnapshot, editorServer);
+}
+
+/* ------------------------------- PIN unlock -------------------------------- */
+/* A locked profile asks for its four digits before it opens. One shared
+ * dialog serves every doorway: the gate wall, manage mode, the top-bar
+ * switcher. The hash is verified locally (lib/pin.ts) — nothing leaves home. */
+
+type PinRequest = { profileId: string; purpose: "switch" | "edit" } | null;
+
+let pinReq: PinRequest = null;
+const pinListeners = new Set<() => void>();
+
+function notifyPin() {
+  for (const l of pinListeners) l();
+}
+
+export function openProfilePin(req: Exclude<PinRequest, null>) {
+  pinReq = req;
+  notifyPin();
+}
+
+function closeProfilePin() {
+  pinReq = null;
+  notifyPin();
+}
+
+function subscribePin(onChange: () => void) {
+  pinListeners.add(onChange);
+  return () => {
+    pinListeners.delete(onChange);
+  };
+}
+
+const pinSnapshot = () => pinReq;
+const pinServer = () => null;
+
+function useProfilePin(): PinRequest {
+  return useSyncExternalStore(subscribePin, pinSnapshot, pinServer);
+}
+
+export function ProfilePinDialog() {
+  const req = useProfilePin();
+  const profiles = useReelivo((s) => s.profiles);
+  const profile = req ? profiles.find((p) => p.id === req.profileId) : undefined;
+
+  return (
+    <Dialog
+      open={req !== null && !!profile}
+      onOpenChange={(v) => {
+        if (!v) closeProfilePin();
+      }}
+    >
+      <DialogContent className="max-w-[320px] border-white/10 bg-popover p-0">
+        {req && profile && (
+          <PinBody key={`${req.profileId}-${req.purpose}`} profile={profile} purpose={req.purpose} />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PinBody({
+  profile,
+  purpose,
+}: {
+  profile: Profile;
+  purpose: "switch" | "edit";
+}) {
+  const switchProfile = useReelivo((s) => s.switchProfile);
+  const setProfilePin = useReelivo((s) => s.setProfilePin);
+  const av = avatarOf(profile);
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [shaking, setShaking] = useState(false);
+  const [forgot, setForgot] = useState(false);
+
+  const proceed = () => {
+    closeProfilePin();
+    if (purpose === "switch") {
+      switchProfile(profile.id);
+      toast(`Watching as ${profile.name}`, { duration: 2200 });
+    } else {
+      openProfileEditor({ mode: "edit", id: profile.id });
+    }
+  };
+
+  const submit = async (candidate: string) => {
+    const h = await pinHash(candidate, profile.id);
+    if (h === profile.pin) {
+      proceed();
+      return;
+    }
+    setError("That PIN didn't match. Try again.");
+    setShaking(true);
+    setTimeout(() => setShaking(false), 480);
+    setCode("");
+  };
+
+  const press = (digit: string) => {
+    setError(null);
+    const next = (code + digit).slice(0, 4);
+    setCode(next);
+    if (next.length === 4) void submit(next);
+  };
+
+  const backspace = () => setCode((c) => c.slice(0, -1));
+
+  /* physical keyboards work too — digits, backspace, escape */
+  const onKey = (e: React.KeyboardEvent) => {
+    if (/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+      press(e.key);
+    } else if (e.key === "Backspace") {
+      e.preventDefault();
+      backspace();
+    }
+  };
+
+  const removeLock = () => {
+    setProfilePin(profile.id, null);
+    toast(`${profile.name}'s lock was removed`);
+    proceed();
+  };
+
+  return (
+    <div onKeyDown={onKey} tabIndex={-1}>
+      <DialogHeader className="items-center border-b border-white/[0.06] px-5 pb-4 pt-5 text-center">
+        <span
+          aria-hidden
+          className={`relative mx-auto block size-14 overflow-hidden rounded-full bg-gradient-to-br ${av.tile}`}
+        >
+          <img src={av.src} alt="" className="absolute inset-0 size-full object-cover" />
+        </span>
+        <DialogTitle className="display mt-2 text-center text-[16px]">
+          {forgot ? `Remove ${profile.name}'s lock?` : `Enter ${profile.name}'s PIN`}
+        </DialogTitle>
+        <DialogDescription className="text-center text-[12.5px] leading-relaxed text-ink-dim">
+          {forgot
+            ? "The lock only lives in this browser — removing it opens the profile again."
+            : purpose === "edit"
+              ? "This profile is locked. Confirm the PIN to change it."
+              : "This profile is locked — four digits and you're in."}
+        </DialogDescription>
+      </DialogHeader>
+
+      {forgot ? (
+        <div className="flex flex-col gap-2 px-5 py-4">
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="h-9 text-xs"
+            onClick={removeLock}
+          >
+            Remove the lock
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs text-ink-dim hover:text-white"
+            onClick={() => setForgot(false)}
+          >
+            Keep it locked
+          </Button>
+        </div>
+      ) : (
+        <div className="px-5 py-4">
+          {/* the four slots */}
+          <div
+            aria-hidden
+            className={`mx-auto flex w-fit items-center gap-3 ${shaking ? "shake-x" : ""}`}
+          >
+            {[0, 1, 2, 3].map((i) => (
+              <span
+                key={i}
+                className={`size-3 rounded-full transition-all duration-150 ${
+                  i < code.length
+                    ? "scale-110 bg-primary shadow-[0_0_10px_rgba(0,168,225,0.55)]"
+                    : "bg-white/15"
+                }`}
+              />
+            ))}
+          </div>
+          <p aria-live="polite" className="mt-2 h-4 text-center text-[12px] text-red-400">
+            {error ?? ""}
+          </p>
+
+          {/* keypad */}
+          <div className="mx-auto mt-1 grid w-[216px] grid-cols-3 gap-2" role="group" aria-label="PIN keypad">
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
+              <button
+                key={d}
+                type="button"
+                aria-label={`Digit ${d}`}
+                onClick={() => press(d)}
+                className="grid h-11 place-items-center rounded-xl border border-white/[0.08] bg-surface text-[16px] font-semibold text-white transition-colors duration-100 hover:border-white/25 hover:bg-surface-2 active:bg-white/10"
+              >
+                {d}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setForgot(true)}
+              className="col-start-1 grid h-11 place-items-center rounded-xl text-[11px] font-semibold tracking-wide text-ink-dim transition-colors duration-100 hover:text-white"
+            >
+              Forgot?
+            </button>
+            <button
+              type="button"
+              aria-label="Digit 0"
+              onClick={() => press("0")}
+              className="grid h-11 place-items-center rounded-xl border border-white/[0.08] bg-surface text-[16px] font-semibold text-white transition-colors duration-100 hover:border-white/25 hover:bg-surface-2 active:bg-white/10"
+            >
+              0
+            </button>
+            <button
+              type="button"
+              aria-label="Delete last digit"
+              onClick={backspace}
+              className="grid h-11 place-items-center rounded-xl text-[11px] font-semibold tracking-wide text-ink-dim transition-colors duration-100 hover:text-white"
+            >
+              ⌫
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ------------------------------ profile editor ------------------------------ */
@@ -183,11 +409,11 @@ function EditorBody({
           {req.mode === "edit" ? "Edit profile" : "New profile"}
         </DialogTitle>
         <DialogDescription className="text-left text-[13px] leading-relaxed text-ink-dim">
-          Each profile keeps its own list, resume queue and search history — on this device only.
+          Each profile keeps its own list, resume queue, history and lock — on this device only.
         </DialogDescription>
       </DialogHeader>
 
-      <div className="px-5 py-4">
+      <div className="max-h-[62vh] overflow-y-auto px-5 py-4">
         <Label htmlFor="profile-name" className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim">
           Name
         </Label>
@@ -212,7 +438,6 @@ function EditorBody({
         </p>
         <div role="radiogroup" aria-label="Avatar" className="mt-2 grid grid-cols-4 gap-2.5">
           {AVATARS.map((av, i) => {
-            const Icon = av.icon;
             const selected = avatar === i;
             return (
               <button
@@ -220,15 +445,15 @@ function EditorBody({
                 type="button"
                 role="radio"
                 aria-checked={selected}
-                aria-label={`Avatar ${i + 1}`}
+                aria-label={av.label}
                 onClick={() => setAvatar(i)}
-                className={`grid aspect-square place-items-center rounded-2xl bg-gradient-to-br transition-all duration-150 ${av.tile} ${
+                className={`relative aspect-square overflow-hidden rounded-2xl bg-gradient-to-br transition-all duration-150 ${av.tile} ${
                   selected
-                    ? `ring-2 ${av.ring} scale-[1.04]`
+                    ? "scale-[1.04] ring-2 ring-primary/70"
                     : "opacity-60 hover:opacity-100 focus-visible:opacity-100"
                 }`}
               >
-                <Icon className="size-5 text-white" aria-hidden />
+                <img src={av.src} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" />
               </button>
             );
           })}
@@ -243,6 +468,8 @@ function EditorBody({
           </div>
           <Switch checked={kids} onCheckedChange={setKids} aria-label="Kids profile" />
         </div>
+
+        {req.mode === "edit" && editing && <LockSection profile={editing} />}
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] px-5 py-3.5">
@@ -296,6 +523,128 @@ function EditorBody({
   );
 }
 
+/* ------------------------------ profile lock -------------------------------- */
+
+function LockSection({ profile }: { profile: Profile }) {
+  const setProfilePin = useReelivo((s) => s.setProfilePin);
+  const locked = !!profile.pin;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const enable = async () => {
+    if (!isFourDigits(draft)) return;
+    setProfilePin(profile.id, await pinHash(draft, profile.id));
+    setDraft("");
+    setEditing(false);
+    toast.success("Profile lock on — it will ask for the PIN before opening");
+  };
+
+  const remove = () => {
+    setProfilePin(profile.id, null);
+    setEditing(false);
+    toast(`${profile.name}'s lock was removed`);
+  };
+
+  const draftOk = isFourDigits(draft);
+
+  return (
+    <div className="mt-2.5 rounded-xl border border-white/[0.07] bg-surface-2 px-3.5 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <LockKeyhole
+            className={`mt-0.5 size-4 shrink-0 ${locked ? "text-primary" : "text-ink-dim"}`}
+            aria-hidden
+          />
+          <div>
+            <p className="text-[13px] font-semibold">
+              Profile lock {locked ? "· on" : "· off"}
+            </p>
+            <p className="mt-0.5 text-[11.5px] leading-snug text-ink-dim">
+              {locked
+                ? "Asks for the four digits before this profile opens on this device."
+                : "Keep this one private — a four-digit PIN before it opens."}
+            </p>
+          </div>
+        </div>
+        {!editing && (
+          <div className="flex shrink-0 items-center gap-1">
+            {locked && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[11.5px] text-ink-dim hover:text-red-300"
+                onClick={remove}
+              >
+                Remove
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-[11.5px] text-primary hover:bg-primary/10 hover:text-primary"
+              onClick={() => setEditing(true)}
+            >
+              {locked ? "Change" : "Add PIN"}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {editing && (
+        <div className="mt-3 border-t border-white/[0.06] pt-3">
+          <div className="flex items-center gap-2">
+            <Input
+              autoFocus
+              value={draft}
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              onChange={(e) => setDraft(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void enable();
+                }
+              }}
+              placeholder="••••"
+              aria-label="Four digit PIN"
+              className="h-9 w-24 border-white/10 bg-surface text-center text-[16px] font-semibold tracking-[0.4em] focus-visible:border-primary focus-visible:ring-0"
+            />
+            <Button
+              type="button"
+              size="sm"
+              disabled={!draftOk}
+              onClick={() => void enable()}
+              className="h-8 px-3 text-xs"
+            >
+              {locked ? "Set PIN" : "Enable lock"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs text-ink-dim hover:text-white"
+              onClick={() => {
+                setEditing(false);
+                setDraft("");
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+          <p className="mt-2 text-[11px] text-ink-dim">
+            {draft.length > 0 && !draftOk
+              ? "Exactly four digits."
+              : "Digits only, stored as a hash in this browser — a gentle lock, not security."}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ------------------------------ the gate wall ------------------------------- */
 
 function TileName({ children }: { children: React.ReactNode }) {
@@ -324,16 +673,21 @@ function GlassTile({
 }) {
   const tileRef = useRef<HTMLDivElement>(null);
   const [glassFailed, setGlassFailed] = useState(false);
+  const [avLoaded, setAvLoaded] = useState(false);
   const av = avatarOf(profile);
-  const Icon = av.icon;
-  const showFallback = !artReady || glassFailed;
+  /* the gradient twin shows while the portrait loads or if glass isn't available */
+  const showFallback = !artReady || glassFailed || !avLoaded;
 
   return (
     <button
       type="button"
       onClick={onOpen}
       aria-label={
-        manage ? `Edit ${profile.name}` : `Continue as ${profile.name}`
+        manage
+          ? `Edit ${profile.name}`
+          : profile.pin
+            ? `Continue as ${profile.name} — locked`
+            : `Continue as ${profile.name}`
       }
       className="group relative z-20 w-[104px] shrink-0 rounded-2xl p-1 text-center transition-transform duration-200 hover:scale-[1.05] focus-visible:scale-[1.05] md:w-[120px]"
     >
@@ -361,23 +715,36 @@ function GlassTile({
         ref={tileRef}
         className="relative mx-auto size-[92px] md:size-[108px]"
       >
-        {/* fallback skin — only while art loads or if glass isn't available */}
+        {/* fallback skin — gradient twin + initial while art/portrait loads */}
         {showFallback && (
           <span
             aria-hidden
-            className={`absolute inset-0 rounded-full bg-gradient-to-br opacity-90 transition-opacity duration-300 ${av.tile}`}
-          />
+            className={`absolute inset-0 grid place-items-center rounded-full bg-gradient-to-br opacity-95 transition-opacity duration-300 ${av.tile}`}
+          >
+            <span className="display text-2xl font-extrabold text-white/90 md:text-3xl">
+              {profile.name.slice(0, 1).toUpperCase()}
+            </span>
+          </span>
         )}
+        <img
+          src={av.src}
+          alt=""
+          loading="lazy"
+          onLoad={() => setAvLoaded(true)}
+          className="absolute inset-0 size-full rounded-full object-cover"
+        />
         <span
           aria-hidden
           className="absolute inset-0 rounded-full ring-1 ring-white/25 transition-all duration-200 group-hover:ring-2 group-hover:ring-white/60"
         />
-        <span className="absolute inset-0 grid place-items-center">
-          <Icon className="size-8 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)] md:size-9" aria-hidden />
-        </span>
         {profile.kids && (
           <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full border border-amber-300/50 bg-black px-2 py-px text-[9px] font-bold uppercase tracking-[0.14em] text-amber-300">
             Kids
+          </span>
+        )}
+        {profile.pin && (
+          <span className="absolute -right-1 -top-1 grid size-6 place-items-center rounded-full border border-white/25 bg-black">
+            <LockKeyhole className="size-3 text-primary" aria-hidden />
           </span>
         )}
         {manage && (
@@ -426,6 +793,21 @@ export function ProfileGate() {
 
   const onboarding = profiles.length === 0;
 
+  const openTile = (p: Profile) => {
+    if (manage) {
+      /* locked tiles verify their PIN before the editor opens */
+      if (p.pin) openProfilePin({ profileId: p.id, purpose: "edit" });
+      else openProfileEditor({ mode: "edit", id: p.id });
+      return;
+    }
+    if (p.pin) {
+      openProfilePin({ profileId: p.id, purpose: "switch" });
+      return;
+    }
+    switchProfile(p.id);
+    toast(`Watching as ${p.name}`, { duration: 2200 });
+  };
+
   return (
     <div
       ref={gateRef}
@@ -456,8 +838,8 @@ export function ProfileGate() {
           {onboarding
             ? "Create a profile to keep your list, resume queue and history separate — all stored on this device."
             : manage
-              ? "Pick a tile to rename it, swap the avatar, or remove it altogether."
-              : "Pick a profile — your list and resume queue are waiting."}
+              ? "Pick a tile to rename it, swap the portrait, lock it, or remove it altogether."
+              : "Pick a profile — locked ones ask for their PIN first."}
         </p>
 
         <div className="mt-10 flex flex-wrap items-start justify-center gap-5 md:gap-7">
@@ -472,13 +854,7 @@ export function ProfileGate() {
                 backdropRef={backdropRef}
                 gateRef={gateRef}
                 artReady={artReady}
-                onOpen={() => {
-                  if (manage) openProfileEditor({ mode: "edit", id: p.id });
-                  else {
-                    switchProfile(p.id);
-                    toast(`Watching as ${p.name}`, { duration: 2200 });
-                  }
-                }}
+                onOpen={() => openTile(p)}
               />
             ))}
           {(onboarding || manage || profiles.length < 6) && (

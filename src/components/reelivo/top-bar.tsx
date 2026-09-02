@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bookmark, Check, Pencil, Plus, Search, UserRound } from "lucide-react";
+import { Bookmark, Check, History, LockKeyhole, Pencil, Plus, Search, UserRound } from "lucide-react";
 import { hrefFor, navigate, type Route } from "@/lib/hooks";
 import { useReelivo } from "@/lib/store";
 import { useMounted } from "./media";
 import { Kbd } from "./bits";
-import { ProfileAvatar, openProfileEditor } from "./profiles";
+import { ProfileAvatar, openProfileEditor, openProfilePin } from "./profiles";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -145,7 +145,7 @@ export function TopBar({
               className="rounded-full transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             >
               {mounted ? (
-                <ProfileAvatar profile={activeProfile} className="size-9" iconClassName="size-4" />
+                <ProfileAvatar profile={activeProfile} className="size-9" />
               ) : (
                 <span className="grid size-9 place-items-center rounded-full bg-white/[0.06] text-white/50">
                   <UserRound className="size-4" aria-hidden />
@@ -163,15 +163,29 @@ export function TopBar({
               {profiles.map((p) => (
                 <DropdownMenuItem
                   key={p.id}
-                  onClick={() => switchProfile(p.id)}
+                  onClick={() => {
+                    /* locked profiles verify their PIN before the swap */
+                    if (p.pin) openProfilePin({ profileId: p.id, purpose: "switch" });
+                    else switchProfile(p.id);
+                  }}
                   className="gap-2.5 rounded-lg py-2 text-[13px]"
                 >
-                  <ProfileAvatar profile={p} className="size-6" iconClassName="size-3" />
+                  <ProfileAvatar profile={p} className="size-6" />
                   <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                  {p.id === activeProfileId && <Check className="size-3.5 text-primary" aria-hidden />}
+                  {p.pin && <LockKeyhole className="size-3.5 text-ink-dim" aria-label="Locked" aria-hidden />}
+                  {p.id === activeProfileId && !p.pin && (
+                    <Check className="size-3.5 text-primary" aria-hidden />
+                  )}
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator className="bg-white/[0.07]" />
+              <DropdownMenuItem
+                onClick={() => navigate(hrefFor({ name: "history" }))}
+                className="gap-2.5 rounded-lg py-2 text-[13px]"
+              >
+                <History className="size-4 text-ink-dim" aria-hidden />
+                Viewing history
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => openProfileEditor({ mode: "create" })}
                 className="gap-2.5 rounded-lg py-2 text-[13px]"

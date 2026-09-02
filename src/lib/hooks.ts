@@ -13,6 +13,7 @@ export type Route =
   | { name: "series"; genre?: string; mode?: string }
   | { name: "services" }
   | { name: "watchlist" }
+  | { name: "history" }
   | { name: "detail"; type: MediaType; id: number }
   | { name: "person"; id: number; rank?: number }
   | { name: "director"; id: number }
@@ -37,6 +38,8 @@ export function parseHash(hash: string): Route {
       return { name: "services" };
     case "watchlist":
       return { name: "watchlist" };
+    case "history":
+      return { name: "history" };
     case "person":
       // optional trailing segment carries a trending rank: #/person/123/4 →
       // shows a "№ 4 trending this week" badge on the profile.
@@ -65,7 +68,7 @@ function num(s?: string): number {
 
 export function hrefFor(
   route:
-    | { name: "home" | "services" | "watchlist" }
+    | { name: "home" | "services" | "watchlist" | "history" }
     | { name: "films" | "series"; genre?: string; mode?: string }
     | { name: "detail"; type: MediaType; id: number }
     | { name: "person"; id: number; rank?: number }

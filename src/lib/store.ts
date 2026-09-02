@@ -43,6 +43,9 @@ export interface Profile {
   avatar: number;
   kids: boolean;
   createdAt: number;
+  /** Hash of a 4-digit PIN (see lib/pin.ts) — a gentle, local-only lock that
+   * asks for the digits before the profile opens. Absent = open profile. */
+  pin?: string;
 }
 
 export interface ProfileData {
@@ -51,6 +54,18 @@ export interface ProfileData {
   progress: Record<string, ProgressEntry>;
   lastEpisode: Record<string, { season: number; episode: number }>;
   searchHistory: string[];
+  /** Everything this profile ever pressed play on, newest first. */
+  history: HistoryEntry[];
+}
+
+/** One row of viewing history — a play session on a title (or one episode). */
+export interface HistoryEntry extends SavedItem {
+  key: string;
+  season?: number;
+  episode?: number;
+  /** 0..1 — how far the last play got. */
+  pct: number;
+  watchedAt: number;
 }
 
 const EMPTY_DATA: ProfileData = {
@@ -59,6 +74,7 @@ const EMPTY_DATA: ProfileData = {
   progress: {},
   lastEpisode: {},
   searchHistory: [],
+  history: [],
 };
 
 /** Gate mode: "who" = pick a profile · "manage" = pick + edit · "off" = in-app. */
@@ -78,6 +94,7 @@ interface ReelivoState {
   progress: Record<string, ProgressEntry>;
   lastEpisode: Record<string, { season: number; episode: number }>;
   searchHistory: string[];
+  history: HistoryEntry[];
 
   /* device-level prefs (shared across profiles) */
   region: string;
@@ -90,6 +107,9 @@ interface ReelivoState {
   switchProfile: (id: string) => void;
   openGate: (mode: Exclude<GateMode, "off">) => void;
   closeGate: () => void;
+  /** Store the PIN hash (or null to remove the lock). Hashing happens in the
+   * caller via lib/pin.ts so the store stays synchronous. */
+  setProfilePin: (id: string, pinHash: string | null) => void;
 
   /* media actions (per active profile) */
   isInWatchlist: (id: number) => boolean;
@@ -106,6 +126,10 @@ interface ReelivoState {
   setLastEpisode: (id: number, season: number, episode: number) => void;
   getLastEpisode: (id: number) => { season: number; episode: number } | undefined;
   pushSearch: (q: string) => void;
+  /** Upsert one viewing-history row (keyed like progress); capped at 100. */
+  logHistory: (item: SavedItem & { season?: number; episode?: number }, pct?: number) => void;
+  removeHistory: (key: string) => void;
+  clearHistory: () => void;
   setRegion: (r: string) => void;
   setServiceFocus: (id: number | null) => void;
 }
@@ -145,6 +169,7 @@ export const useReelivo = create<ReelivoState>()(
       progress: {},
       lastEpisode: {},
       searchHistory: [],
+      history: [],
 
       region: "US",
       serviceFocus: null,
@@ -211,8 +236,14 @@ export const useReelivo = create<ReelivoState>()(
           progress: slice.progress,
           lastEpisode: slice.lastEpisode,
           searchHistory: slice.searchHistory,
+          history: slice.history,
         });
       },
+
+      setProfilePin: (id, pinHash) =>
+        set((s) => ({
+          profiles: s.profiles.map((p) => (p.id === id ? { ...p, pin: pinHash ?? undefined } : p)),
+        })),
 
       openGate: (mode) => set({ gate: mode }),
       closeGate: () => set({ gate: "off" }),
@@ -310,11 +341,35 @@ export const useReelivo = create<ReelivoState>()(
 
       saveProgress: (entry) => {
         const key = progressKey(entry.id, entry.type, entry.season, entry.episode);
+        const progress = {
+          ...get().progress,
+          [key]: { ...entry, key, updatedAt: Date.now() },
+        };
+        /* the same event is the history heartbeat — one row per title/episode,
+         * moved to the top with the latest position */
+        const prev = get().history.find((h) => h.key === key);
+        const pct =
+          entry.duration > 0
+            ? Math.min(1, Math.max(0, entry.timestamp / entry.duration))
+            : (prev?.pct ?? 0);
+        const row: HistoryEntry = {
+          id: entry.id,
+          type: entry.type,
+          title: entry.title,
+          poster: entry.poster,
+          backdrop: entry.backdrop,
+          year: entry.year,
+          rating: entry.rating,
+          addedAt: entry.addedAt,
+          key,
+          season: entry.season,
+          episode: entry.episode,
+          pct,
+          watchedAt: Date.now(),
+        };
         commit(set, get, {
-          progress: {
-            ...get().progress,
-            [key]: { ...entry, key, updatedAt: Date.now() },
-          },
+          progress,
+          history: [row, ...get().history.filter((h) => h.key !== key)].slice(0, 100),
         });
       },
 
@@ -341,6 +396,24 @@ export const useReelivo = create<ReelivoState>()(
         });
       },
 
+      logHistory: (item, pct = 0) => {
+        const key = progressKey(item.id, item.type, item.season, item.episode);
+        const row: HistoryEntry = {
+          ...item,
+          key,
+          pct: Math.min(1, Math.max(0, pct)),
+          watchedAt: Date.now(),
+        };
+        commit(set, get, {
+          history: [row, ...get().history.filter((h) => h.key !== key)].slice(0, 100),
+        });
+      },
+
+      removeHistory: (key) =>
+        commit(set, get, { history: get().history.filter((h) => h.key !== key) }),
+
+      clearHistory: () => commit(set, get, { history: [] }),
+
       setRegion: (region) => set({ region }),
 
       setServiceFocus: (serviceFocus) => set({ serviceFocus }),
@@ -361,6 +434,7 @@ export const useReelivo = create<ReelivoState>()(
         progress: s.progress,
         lastEpisode: s.lastEpisode,
         searchHistory: s.searchHistory,
+        history: s.history,
         region: s.region,
         serviceFocus: s.serviceFocus,
       }),
@@ -396,6 +470,7 @@ function adoptLegacyData() {
         progress: s.progress,
         lastEpisode: s.lastEpisode,
         searchHistory: s.searchHistory,
+        history: [],
       },
     },
   });
