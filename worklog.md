@@ -339,3 +339,18 @@ Stage Summary:
 - Repo attribution is now 100% Anik1377 (profile avatar/name on github.com will reflect it on all commits).
 - Lesson recorded: always use `{id}+{login}@users.noreply.github.com` for attribution privacy + correct account linking.
 - Token-revocation reminder carried over (transit-token still active at time of this push).
+
+---
+Task ID: 18 (user request — "remove him from the contributor too")
+Agent: Z.ai Code (main)
+Task: Clear the stale contributor entry after the attribution rewrite
+
+Work Log:
+- Checked repo refs for anything still anchoring pre-rewrite commits: branches = only main @ fe6fa90, tags = none → old objects unreferenced.
+- Contributors API already returned ONLY Anik1377; stats/contributors endpoint returned 202 (GitHub recomputes contributor stats asynchronously after force-pushes — the lingering "anik" the user saw was this cache).
+- Polled stats until 200: `contributor: Anik1377 | total: 6` — recalculation complete, stale entry gone everywhere (sidebar, Insights → Contributors).
+
+Stage Summary:
+- Repo attribution is now fully clean: every commit + the contributor graph = Anik1377 only.
+- Note for the future: after any history rewrite, the contributors graph can lag (202 → recompute); requesting the stats endpoint queues the refresh.
+- Carried over: revoke the transit-exposed PAT.
