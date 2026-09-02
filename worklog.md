@@ -322,3 +322,20 @@ Stage Summary:
 - https://github.com/Anik1377/reelivo now carries the full immersive-UI round + the error-fix round (public, main @ d360bca).
 - Reminder carried over: the PAT has transited chat multiple times — revoke it at github.com/settings/tokens and, if a future push is needed, supply a fresh token (fine-grained, repo-scoped, short expiry recommended).
 - Next-phase: resume the immersive long-run track (Task-14/15 recommendations list in worklog).
+
+---
+Task ID: 17 (user request — fix commit attribution)
+Agent: Z.ai Code (main)
+Task: Credit all commits to Anik1377 (wrong-email fix + history rewrite + force-push)
+
+Work Log:
+- User reported commits credited to the wrong person. Root cause: commits used `anik@users.noreply.github.com` — the OLD noreply format (`username@users.noreply.github.com`), which GitHub associates with whatever account owns the username "anik" (a different person). Older commits also carried the sandbox identity "Z User <z@container>" (unlinked).
+- Correct identity resolved from the API: user id 85824827 → proper modern noreply `85824827+Anik1377@users.noreply.github.com`.
+- Fixed repo-local config (user.name/user.email) so every future commit is correct.
+- Rewrote ALL 5 commits with git filter-branch env-filter (author + committer = Anik1377 / 85824827+Anik1377@users.noreply.github.com); new history 6a3c650…535176c.
+- Force-pushed with --force-with-lease pinned to the previous remote SHA (safe, no clobber of unknown remote moves). Verified via commits API: every commit now shows author-login: Anik1377.
+
+Stage Summary:
+- Repo attribution is now 100% Anik1377 (profile avatar/name on github.com will reflect it on all commits).
+- Lesson recorded: always use `{id}+{login}@users.noreply.github.com` for attribution privacy + correct account linking.
+- Token-revocation reminder carried over (transit-token still active at time of this push).
