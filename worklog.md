@@ -239,3 +239,25 @@ Stage Summary:
 - Reviews gained sorting; browse gained Netflix-style infinite scroll with an honest end state.
 - Known/unchanged: Videasy shutdown banner (endpoints serve); TMDB US "Prime Video" logo baked-in text; YouTube trailer bot-check in headless only; hover states unverifiable in sandbox (hover: hover = false); SW prod-only.
 - Next-phase recommendations: 1) auto-load sentinel for reviews "Load more" (same IO pattern, gated behind showAll); 2) genre hero rotation across top-3 backdrops (existing carousel pattern); 3) PWA SW VERSION bump strategy on next deploy; 4) "Airs this week" home rail via tv/season aggregation (heavier); 5) keyboard shortcut g+f/g+s style section jumps could complement BackToTop.
+
+---
+Task ID: 13 (user request)
+Agent: Z.ai Code (main)
+Task: Create a GitHub repo and push the project
+
+Work Log:
+- Pre-flight: git repo existed (main, clean tree, 132 files) with NO remote, NO gh CLI, NO credentials. GitHub reachable; unauthenticated API rate-limited.
+- SECURITY AUDIT before publishing (critical finds):
+  • `.env` (TMDB_API_KEY) was TRACKED in the index AND present in two historical commits (e78eb4a, 8791458) — full-history push would have leaked the key.
+  • Sandbox junk also tracked: db/custom.db, tool-results/*.txt, upload/ docs, .zscripts/ (incl. dev.pid), tests/, download/.
+- Cleanup: extended .gitignore (tool-results/, agent-ctx/, upload/, download/, tests/, .zscripts/, *.pid, db/*.db, github-*.sh); rebuilt the index with git rm -r --cached . && git add -A; created ONE fresh ORPHAN commit (`1b74655` "Reelivo — OTT-style film & TV discovery app") replacing the entire old history → old .env-bearing history now exists only on this machine and is gone from the branch. Verified: 106 files, no .env/db/tool-results in tree ("SECRET-FREE").
+- Authored a proper README.md (features, stack table, getting started with TMDB key note, project layout, TMDB attribution).
+- Prepared github-publish.sh (gitignored): validates token via /user, creates repo via API, pushes main via x-access-token URL, stores remote WITHOUT token.
+- User supplied a classic PAT (ghp_5WRf…) → token verified: login=Anik1377 (Najmul Islam Anik). Defaults used: repo name "reelivo", visibility public, author unchanged.
+- Executed publish: repo created + main pushed. Verified via API: Anik1377/reelivo, private:false, root listing shows expected files and NO .env. Added topics (nextjs, typescript, tailwindcss, tmdb, streaming, ott, movie-app, pwa, prisma, zustand).
+- Notes: `size: 0` right after push = GitHub eventual-consistency lag (contents API confirmed files). worklog.md ships in the repo (no secrets inside) — can be removed on request. User was advised to revoke the pasted PAT (it transited chat) and optionally rotate the TMDB key. Local .env untouched — dev server unaffected.
+
+Stage Summary:
+- Live repo: https://github.com/Anik1377/reelivo (public, 1 clean commit, main).
+- History rewrite eliminated the API-key leak path; .gitignore now guards every artifact class that slipped in before.
+- If the user wants: rename repo, flip private, set author identity, remove worklog.md, or add GitHub Actions CI (typecheck+lint) — natural next steps.
