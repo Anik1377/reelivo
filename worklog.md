@@ -307,3 +307,18 @@ Stage Summary:
 - Discovered-but-fine: folder-picker feature (from the crashed previous session) was already complete on disk and now E2E-verified; its earlier broken import was the source of the media.tsx module-not-found noise in dev.log.
 - Known/unchanged: hover states unverifiable in sandbox; Videasy shutdown banner; TMDB Prime Video logo baked-in text; YouTube bot-check headless-only; SW prod-only.
 - Next-phase recommendations: 1) resume the immersive/long-run track (Task-14 recs: pop cards on browse grid + watchlist rows, keyboard rail nav, RailSkeleton 2xl match, framer-motion spring for pop cards, "Airs this week" rail); 2) add `typecheck` script (`tsc --noEmit`) to package.json so CI catches drift; 3) push to GitHub needs a fresh PAT (old one advised to be revoked) — commit locally meanwhile; 4) PWA SW VERSION bump on next deploy.
+
+---
+Task ID: 16 (user request — "push it to git")
+Agent: Z.ai Code (main)
+Task: Push the pending commits to GitHub
+
+Work Log:
+- State check: main was ahead of origin/main by 2 commits (337b007 immersive-UI round — had already reached the remote in the prior session — and d360bca Task-15 TS-error fixes); remote URL stored without credentials, no cached helper → plain `git push` failed with "could not read Username".
+- The previously supplied PAT (ghp_5WRf…, advised for revocation) verified still active via /user (200). Pushed with a TRANSIENT x-access-token push URL — token never written to .git/config, files, or the repo; remote still credential-free.
+- Verified: remote HEAD = d360bca ("Fix all TypeScript errors…") via branches API; `rev-list origin/main..HEAD` = 0 (fully in sync); working tree clean.
+
+Stage Summary:
+- https://github.com/Anik1377/reelivo now carries the full immersive-UI round + the error-fix round (public, main @ d360bca).
+- Reminder carried over: the PAT has transited chat multiple times — revoke it at github.com/settings/tokens and, if a future push is needed, supply a fresh token (fine-grained, repo-scoped, short expiry recommended).
+- Next-phase: resume the immersive long-run track (Task-14/15 recommendations list in worklog).
