@@ -175,7 +175,7 @@ export function RailSkeleton() {
   return (
     <div className="flex gap-4 overflow-hidden" aria-hidden>
       {[0, 1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className="w-[240px] shrink-0 md:w-[300px]">
+        <div key={i} className="w-[240px] shrink-0 md:w-[300px] 2xl:w-[340px]">
           <StillSkeleton className="aspect-video w-full" />
           <StillSkeleton className="mt-2.5 h-3 w-3/4" />
         </div>

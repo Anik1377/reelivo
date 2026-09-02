@@ -257,6 +257,7 @@ export function BrowseView({
                   item={i}
                   type={kind}
                   fluid
+                  preview
                   showScore={false}
                   sub={`${date ? date.slice(0, 4) : ""} · ${kind === "movie" ? "Film" : "Series"}`}
                 />

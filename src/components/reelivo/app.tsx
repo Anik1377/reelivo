@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useHashRoute, type Route } from "@/lib/hooks";
+import { useReelivo } from "@/lib/store";
 import { TopBar } from "./top-bar";
 import { MobileNav } from "./mobile-nav";
 import { Footer } from "./footer";
@@ -11,12 +12,14 @@ import { ShortcutsDialog } from "./shortcuts-dialog";
 import { BackToTop, ScrollProgress } from "./bits";
 import { InstallPill } from "./install-pill";
 import { FolderPicker } from "./folder-picker";
+import { ProfileGate, ProfileEditor } from "./profiles";
 import { HomeView } from "./views/home";
 import { BrowseView } from "./views/browse";
 import { ServicesView } from "./views/services";
 import { WatchlistView } from "./views/watchlist";
 import { DetailView } from "./views/detail";
 import { PersonView } from "./views/person";
+import { DirectorView } from "./views/director";
 import { CollectionView } from "./views/collection";
 import { PlayerView } from "./views/player";
 
@@ -84,6 +87,7 @@ export function ReelivoApp() {
   }, []);
 
   const immersive = route.name === "play";
+  const gate = useReelivo((s) => s.gate);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -105,6 +109,7 @@ export function ReelivoApp() {
             {route.name === "watchlist" && <WatchlistView />}
             {route.name === "detail" && <DetailView type={route.type} id={route.id} />}
             {route.name === "person" && <PersonView id={route.id} rank={route.rank} />}
+            {route.name === "director" && <DirectorView id={route.id} />}
             {route.name === "collection" && <CollectionView id={route.id} />}
             {route.name === "play" && (
               <PlayerView type={route.type} id={route.id} season={route.season} episode={route.episode} />
@@ -125,6 +130,8 @@ export function ReelivoApp() {
         />
         <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
         <FolderPicker />
+        <ProfileEditor />
+        {gate !== "off" && <ProfileGate />}
       </div>
     </QueryClientProvider>
   );

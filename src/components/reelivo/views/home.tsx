@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Info, Play, X } from "lucide-react";
-import { hrefFor, navigate, useTmdb } from "@/lib/hooks";
+import { useQueries } from "@tanstack/react-query";
+import { ArrowRight, Info, Layers, Play, X } from "lucide-react";
+import { hrefFor, navigate, tmdbFetch, useTmdb } from "@/lib/hooks";
 import { continueEntries, useReelivo } from "@/lib/store";
+import { DIRECTORS, FRANCHISES } from "@/lib/curated";
 import {
   airLabel,
   dateOf,
@@ -16,8 +18,9 @@ import {
   weekWindow,
   yearOf,
   genreNames,
+  profile as profileUrl,
 } from "@/lib/format";
-import type { MediaItem, Paged, ProviderEntry, ProvidersList, TrendingPersons } from "@/lib/tmdb-types";
+import type { CollectionDetail, MediaItem, Paged, PersonDetail, ProviderEntry, ProvidersList, TrendingPersons } from "@/lib/tmdb-types";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import {
   EmptyNote,
@@ -267,14 +270,20 @@ function ContinueStrip() {
   const mounted = useMounted();
   const progress = useReelivo((s) => s.progress);
   const clearProgress = useReelivo((s) => s.clearProgress);
+  const profile = useReelivo((s) => s.profiles.find((p) => p.id === s.activeProfileId));
   const entries = mounted ? continueEntries(progress) : [];
 
   if (entries.length === 0) return null;
 
+  /* A small, human touch: the greeting rides on the resume queue like an
+   * usher, not a dashboard widget. Hours 5–12 morning, 12–18 afternoon. */
+  const hour = mounted ? new Date().getHours() : 12;
+  const timeWord = hour < 5 ? "Late night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
   return (
     <section aria-label="Continue watching">
       <SectionHead
-        title="Continue watching"
+        title={profile ? `${timeWord}, ${profile.name}` : "Continue watching"}
         aside={<span className="text-xs text-ink-dim">Picks up where you left off</span>}
       />
       <Rail label="continue watching" ariaLabel="Continue watching">
@@ -652,6 +661,141 @@ function TrendingPeopleRail() {
   );
 }
 
+/* ------------------------------- collections ------------------------------- */
+
+function CollectionsRail() {
+  /* Each franchise card hydrates from its real TMDB collection — name, art and
+   * film count are live data, the curation is only the id list. */
+  const cols = useQueries({
+    queries: FRANCHISES.map((f) => ({
+      queryKey: ["tmdb", `collection/${f.id}`, {}] as const,
+      queryFn: () => tmdbFetch<CollectionDetail>(`collection/${f.id}`),
+      staleTime: 60 * 60 * 1000,
+      retry: 1,
+    })),
+  });
+
+  const loading = cols.some((q) => q.isPending);
+  const ready = FRANCHISES.map((f, i) => ({ ref: f, data: cols[i]?.data })).filter(
+    (x): x is { ref: typeof x.ref; data: CollectionDetail } => !!x.data?.id
+  );
+
+  return (
+    <section aria-label="Collections">
+      <SectionHead
+        kicker="Collections"
+        title="Franchises worth the marathon"
+        aside={
+          <span className="text-xs text-ink-dim">Complete runs, in release order</span>
+        }
+      />
+      {loading ? (
+        <RailSkeleton />
+      ) : ready.length === 0 ? (
+        <ErrorNote onRetry={() => cols.forEach((q) => q.refetch())} />
+      ) : (
+        <Rail label="collections" ariaLabel="Film franchises and boxsets">
+          {ready.map(({ ref, data }) => (
+            <a
+              key={ref.id}
+              href={hrefFor({ name: "collection", id: ref.id })}
+              aria-label={`${data.name} — ${data.parts?.length ?? 0} titles`}
+              className="group relative block w-[264px] shrink-0 snap-start overflow-hidden rounded-xl bg-surface-2 ring-1 ring-white/[0.06] transition-all duration-200 hover:ring-white/25 md:w-[312px]"
+            >
+              <div className="relative aspect-video w-full overflow-hidden">
+                <Img
+                  src={still(data.backdrop_path, "w780") ?? poster(data.poster_path, "w780")}
+                  alt=""
+                  fallbackTitle={data.name}
+                  sizesHint="320px"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.05]"
+                />
+                <span
+                  aria-hidden
+                  className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent"
+                />
+                <span className="tabular absolute top-2.5 right-2.5 rounded-full border border-white/20 bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white/90 backdrop-blur-sm">
+                  {data.parts?.length ?? 0} films
+                </span>
+                <div className="absolute inset-x-0 bottom-0 p-3.5">
+                  <p className="kicker !text-[9.5px] text-primary/90">{ref.note}</p>
+                  <p className="display mt-1 truncate text-[15.5px] text-white">{data.name}</p>
+                </div>
+              </div>
+            </a>
+          ))}
+        </Rail>
+      )}
+    </section>
+  );
+}
+
+/* --------------------------- director spotlight ---------------------------- */
+
+function DirectorsRail() {
+  const people = useQueries({
+    queries: DIRECTORS.map((d) => ({
+      queryKey: ["tmdb", `person/${d.id}`, {}] as const,
+      queryFn: () => tmdbFetch<PersonDetail>(`person/${d.id}`),
+      staleTime: 24 * 60 * 60 * 1000,
+      retry: 1,
+    })),
+  });
+
+  const loading = people.some((q) => q.isPending);
+  const ready = DIRECTORS.map((d, i) => ({ ref: d, data: people[i]?.data })).filter(
+    (x): x is { ref: typeof x.ref; data: PersonDetail } => !!x.data?.id
+  );
+
+  return (
+    <section aria-label="Director spotlight">
+      <SectionHead
+        kicker="Director spotlight"
+        title="Masters, ranked"
+        aside={
+          <span className="text-xs text-ink-dim">Their best direction, vote-ranked</span>
+        }
+      />
+      {loading ? (
+        <RailSkeleton />
+      ) : ready.length === 0 ? (
+        <ErrorNote onRetry={() => people.forEach((q) => q.refetch())} />
+      ) : (
+        <Rail label="directors" ariaLabel="Director spotlights">
+          {ready.map(({ ref, data }) => (
+            <a
+              key={ref.id}
+              href={hrefFor({ name: "director", id: ref.id })}
+              aria-label={`${data.name} — best works`}
+              className="group relative block w-[152px] shrink-0 snap-start overflow-hidden rounded-xl bg-surface-2 ring-1 ring-white/[0.06] transition-all duration-200 hover:ring-white/25 md:w-[168px]"
+            >
+              <div className="relative aspect-[3/4] w-full overflow-hidden">
+                <Img
+                  src={profileUrl(data.profile_path, "w185")}
+                  alt=""
+                  fallbackTitle={data.name}
+                  sizesHint="168px"
+                  className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.06]"
+                />
+                <span
+                  aria-hidden
+                  className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"
+                />
+                <div className="absolute inset-x-0 bottom-0 p-3">
+                  <p className="truncate text-[13.5px] font-bold text-white">{data.name}</p>
+                  <p className="mt-0.5 line-clamp-1 text-[10.5px] leading-snug text-white/60">
+                    {ref.note}
+                  </p>
+                </div>
+              </div>
+            </a>
+          ))}
+        </Rail>
+      )}
+    </section>
+  );
+}
+
 /* ---------------------------------- home ---------------------------------- */
 
 export function HomeView() {
@@ -690,6 +834,8 @@ export function HomeView() {
         </div>
 
         {chart.length > 0 && <TopTen items={chart} />}
+
+        <CollectionsRail />
 
         <section aria-label="First runs">
           <SectionHead
@@ -754,6 +900,8 @@ export function HomeView() {
         <PremieringRail />
 
         <TrendingPeopleRail />
+
+        <DirectorsRail />
 
         <section aria-label="The praise list">
           <SectionHead

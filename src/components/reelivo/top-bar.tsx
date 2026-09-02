@@ -1,11 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bookmark, Search } from "lucide-react";
+import { Bookmark, Check, Pencil, Plus, Search, UserRound } from "lucide-react";
 import { hrefFor, navigate, type Route } from "@/lib/hooks";
 import { useReelivo } from "@/lib/store";
 import { useMounted } from "./media";
 import { Kbd } from "./bits";
+import { ProfileAvatar, openProfileEditor } from "./profiles";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const LINKS: { key: Route["name"]; label: string; href: string }[] = [
   { key: "home", label: "Home", href: "#/" },
@@ -23,6 +32,11 @@ export function TopBar({
 }) {
   const mounted = useMounted();
   const listCount = useReelivo((s) => s.watchlist.length);
+  const profiles = useReelivo((s) => s.profiles);
+  const activeProfileId = useReelivo((s) => s.activeProfileId);
+  const switchProfile = useReelivo((s) => s.switchProfile);
+  const openGate = useReelivo((s) => s.openGate);
+  const activeProfile = profiles.find((p) => p.id === activeProfileId);
   const [scrolled, setScrolled] = useState(false);
   // immersive chrome — fade the bar away while reading down, bring it back
   // the instant intent reverses; keyboard focus always pins it visible.
@@ -124,6 +138,56 @@ export function TopBar({
               </span>
             )}
           </a>
+          {/* profile switcher — the whole point of profiles is fast person-swapping */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label={activeProfile ? `Profile: ${activeProfile.name}` : "Choose profile"}
+              className="rounded-full transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            >
+              {mounted ? (
+                <ProfileAvatar profile={activeProfile} className="size-9" iconClassName="size-4" />
+              ) : (
+                <span className="grid size-9 place-items-center rounded-full bg-white/[0.06] text-white/50">
+                  <UserRound className="size-4" aria-hidden />
+                </span>
+              )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={10}
+              className="w-52 border-white/10 bg-popover/95 backdrop-blur-md"
+            >
+              <DropdownMenuLabel className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink-dim">
+                Who's watching
+              </DropdownMenuLabel>
+              {profiles.map((p) => (
+                <DropdownMenuItem
+                  key={p.id}
+                  onClick={() => switchProfile(p.id)}
+                  className="gap-2.5 rounded-lg py-2 text-[13px]"
+                >
+                  <ProfileAvatar profile={p} className="size-6" iconClassName="size-3" />
+                  <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                  {p.id === activeProfileId && <Check className="size-3.5 text-primary" aria-hidden />}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator className="bg-white/[0.07]" />
+              <DropdownMenuItem
+                onClick={() => openProfileEditor({ mode: "create" })}
+                className="gap-2.5 rounded-lg py-2 text-[13px]"
+              >
+                <Plus className="size-4 text-primary" aria-hidden />
+                New profile
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => openGate("manage")}
+                className="gap-2.5 rounded-lg py-2 text-[13px]"
+              >
+                <Pencil className="size-4 text-ink-dim" aria-hidden />
+                Manage profiles
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       <a

@@ -15,6 +15,7 @@ export type Route =
   | { name: "watchlist" }
   | { name: "detail"; type: MediaType; id: number }
   | { name: "person"; id: number; rank?: number }
+  | { name: "director"; id: number }
   | { name: "collection"; id: number }
   | { name: "play"; type: MediaType; id: number; season?: number; episode?: number };
 
@@ -40,6 +41,8 @@ export function parseHash(hash: string): Route {
       // optional trailing segment carries a trending rank: #/person/123/4 →
       // shows a "№ 4 trending this week" badge on the profile.
       return { name: "person", id: num(b), rank: num(c) || undefined };
+    case "director":
+      return { name: "director", id: num(b) };
     case "collection":
       return { name: "collection", id: num(b) };
     case "movie":
@@ -66,6 +69,7 @@ export function hrefFor(
     | { name: "films" | "series"; genre?: string; mode?: string }
     | { name: "detail"; type: MediaType; id: number }
     | { name: "person"; id: number; rank?: number }
+    | { name: "director"; id: number }
     | { name: "collection"; id: number }
     | { name: "play"; type: MediaType; id: number; season?: number; episode?: number }
 ): string {
@@ -87,6 +91,8 @@ export function hrefFor(
       return `#/${route.type}/${route.id}`;
     case "person":
       return route.rank ? `#/person/${route.id}/${route.rank}` : `#/person/${route.id}`;
+    case "director":
+      return `#/director/${route.id}`;
     case "collection":
       return `#/collection/${route.id}`;
     case "play":
