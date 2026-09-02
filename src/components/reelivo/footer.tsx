@@ -11,7 +11,7 @@ const QUICK_LINKS: { href: string; label: string }[] = [
 export function Footer({ onShowShortcuts }: { onShowShortcuts?: () => void }) {
   return (
     <footer className="mt-auto border-t border-white/[0.06]">
-      <div className="mx-auto max-w-[1400px] px-4 py-8 md:px-8">
+      <div className="mx-auto max-w-[1400px] px-4 py-8 md:px-8 2xl:max-w-[1720px]">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <p className="display text-sm tracking-tight text-white/90">
             reelivo<span className="text-primary">.</span>

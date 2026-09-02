@@ -191,6 +191,45 @@ body {
   }
 }
 
+/* route hand-off — a soft cut between views (keyed remount on route change) */
+@media (prefers-reduced-motion: no-preference) {
+  .view-in {
+    animation: view-in 0.3s cubic-bezier(0.22, 0.68, 0.31, 1) both;
+  }
+  @keyframes view-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+/* electric accent glow — reserved for the hero's primary call-to-action */
+.glow-primary {
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(0, 168, 225, 0),
+    0 0 24px rgba(0, 168, 225, 0);
+  transition: box-shadow 0.25s ease, translate 0.15s ease;
+}
+.glow-primary:hover {
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 168, 225, 0.55),
+    0 0 34px rgba(0, 168, 225, 0.38);
+}
+@media (prefers-reduced-motion: reduce) {
+  .glow-primary,
+  .glow-primary:hover {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    transition: none;
+  }
+}
+
 /* Ken Burns — slow cinematic drift on hero backdrops; runs while a slide is active */
 @media (prefers-reduced-motion: no-preference) {
   .kenburns {

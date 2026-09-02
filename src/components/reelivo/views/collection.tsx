@@ -129,7 +129,7 @@ export function CollectionView({ id }: { id: number }) {
     return (
       <div aria-busy className="pb-16">
         <StillSkeleton className="h-[34vh] min-h-[240px] w-full rounded-none" />
-        <div className="mx-auto max-w-[1000px] px-4 md:px-8">
+        <div className="mx-auto max-w-[1000px] px-4 md:px-8 2xl:max-w-[1180px]">
           <div className="-mt-16 space-y-3">
             <StillSkeleton className="h-10 w-2/3" />
             <StillSkeleton className="h-4 w-1/3" />
@@ -172,7 +172,7 @@ export function CollectionView({ id }: { id: number }) {
         <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/70 to-transparent" />
       </div>
 
-      <div className="mx-auto max-w-[1000px] px-4 md:px-8">
+      <div className="mx-auto max-w-[1000px] px-4 md:px-8 2xl:max-w-[1180px]">
         <div className="relative z-10 -mt-20 md:-mt-24">
           <p className="kicker text-primary">Collection</p>
           <h1 className="display mt-2 text-[clamp(26px,4vw,44px)] leading-[1.05] text-white">

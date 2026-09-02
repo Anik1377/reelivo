@@ -326,7 +326,7 @@ export function WatchlistView() {
   };
 
   return (
-    <div className="mx-auto max-w-[900px] px-4 pb-16 pt-24 md:px-8 md:pt-32">
+    <div className="mx-auto max-w-[900px] px-4 pb-16 pt-24 md:px-8 md:pt-32 2xl:max-w-[1060px]">
       <SectionHead
         kicker="Saved for later"
         title="Your list"

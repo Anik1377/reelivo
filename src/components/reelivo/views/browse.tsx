@@ -159,7 +159,7 @@ export function BrowseView({
   );
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 pb-16 pt-24 md:px-8 md:pt-28">
+    <div className="mx-auto max-w-[1400px] px-4 pb-16 pt-24 md:px-8 md:pt-28 2xl:max-w-[1720px]">
       {genreName && heroItem ? (
         <div
           className="grain relative -mx-4 mb-6 h-52 overflow-hidden md:mx-0 md:h-64 md:rounded-2xl"
@@ -233,7 +233,7 @@ export function BrowseView({
 
       <div className="mt-8">
         {q.isPending ? (
-          <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
+          <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5" aria-hidden>
             {Array.from({ length: 9 }).map((_, i) => (
               <div key={i}>
                 <StillSkeleton className="aspect-video w-full" />
@@ -248,7 +248,7 @@ export function BrowseView({
             The catalogue came back empty for this filter — try another genre or check back soon.
           </EmptyNote>
         ) : (
-          <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {items.map((i) => {
               const date = i.release_date || i.first_air_date;
               return (

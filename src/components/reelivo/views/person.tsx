@@ -233,7 +233,7 @@ export function PersonView({ id, rank }: { id: number; rank?: number }) {
 
   if (person.isPending) {
     return (
-      <div className="mx-auto max-w-[1100px] px-4 pt-28 pb-16 md:px-8 md:pt-32" aria-busy>
+      <div className="mx-auto max-w-[1100px] 2xl:max-w-[1300px] px-4 pt-28 pb-16 md:px-8 md:pt-32" aria-busy>
         <div className="flex flex-col gap-8 md:flex-row">
           <StillSkeleton className="aspect-[2/3] w-48 rounded-xl md:w-64" />
           <div className="flex-1 space-y-4 pt-2">
@@ -265,7 +265,7 @@ export function PersonView({ id, rank }: { id: number; rank?: number }) {
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-surface-2/70 to-transparent"
         />
-        <div className="relative mx-auto max-w-[1100px] px-4 pt-28 md:px-8 md:pt-36">
+        <div className="relative mx-auto max-w-[1100px] 2xl:max-w-[1300px] px-4 pt-28 md:px-8 md:pt-36">
           <div className="flex flex-col gap-8 md:flex-row md:items-start">
             <div className="w-40 shrink-0 md:w-64">
               <Img
@@ -330,7 +330,7 @@ export function PersonView({ id, rank }: { id: number; rank?: number }) {
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1100px] space-y-12 px-4 pt-12 md:px-8">
+      <div className="mx-auto max-w-[1100px] 2xl:max-w-[1300px] space-y-12 px-4 pt-12 md:px-8">
         {knownFor.length > 0 && (
           <section aria-label="Known for">
             <SectionHead title="Known for" />

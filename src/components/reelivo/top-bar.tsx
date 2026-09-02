@@ -24,9 +24,21 @@ export function TopBar({
   const mounted = useMounted();
   const listCount = useReelivo((s) => s.watchlist.length);
   const [scrolled, setScrolled] = useState(false);
+  // immersive chrome — fade the bar away while reading down, bring it back
+  // the instant intent reverses; keyboard focus always pins it visible.
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 24);
+      const dy = y - lastY;
+      lastY = y;
+      if (y < 140) setHidden(false);
+      else if (dy > 8) setHidden(true);
+      else if (dy < -8) setHidden(false);
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -36,13 +48,15 @@ export function TopBar({
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-40 transition-all duration-300 ${
+      className={`fixed inset-x-0 top-0 z-40 transition-all duration-300 ease-out focus-within:translate-y-0 ${
+        hidden ? "-translate-y-full" : "translate-y-0"
+      } ${
         scrolled
           ? "border-b border-white/[0.06] bg-black/85 backdrop-blur-md"
           : "border-b border-transparent bg-gradient-to-b from-black/70 to-transparent"
       }`}
     >
-      <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between gap-4 px-4 md:h-16 md:px-8">
+      <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between gap-4 px-4 md:h-16 md:px-8 2xl:max-w-[1720px]">
         <div className="flex items-center gap-8">
           <a
             href="#/"

@@ -8,7 +8,7 @@ import { MobileNav } from "./mobile-nav";
 import { Footer } from "./footer";
 import { SearchDialog } from "./search-dialog";
 import { ShortcutsDialog } from "./shortcuts-dialog";
-import { BackToTop } from "./bits";
+import { BackToTop, ScrollProgress } from "./bits";
 import { InstallPill } from "./install-pill";
 import { FolderPicker } from "./folder-picker";
 import { HomeView } from "./views/home";
@@ -89,22 +89,27 @@ export function ReelivoApp() {
     <QueryClientProvider client={queryClient}>
       <div className="flex min-h-screen flex-col bg-background">
         {!immersive && <TopBar route={route as Route} onOpenSearch={() => setSearchOpen(true)} />}
+        {!immersive && <ScrollProgress />}
         <main id="main" className="flex-1">
-          {route.name === "home" && <HomeView />}
-          {route.name === "films" && (
-            <BrowseView kind="movie" key="films" genreSlug={route.genre} modeSlug={route.mode} />
-          )}
-          {route.name === "series" && (
-            <BrowseView kind="tv" key="series" genreSlug={route.genre} modeSlug={route.mode} />
-          )}
-          {route.name === "services" && <ServicesView />}
-          {route.name === "watchlist" && <WatchlistView />}
-          {route.name === "detail" && <DetailView type={route.type} id={route.id} />}
-          {route.name === "person" && <PersonView id={route.id} rank={route.rank} />}
-          {route.name === "collection" && <CollectionView id={route.id} />}
-          {route.name === "play" && (
-            <PlayerView type={route.type} id={route.id} season={route.season} episode={route.episode} />
-          )}
+          {/* keyed hand-off: a soft cut between views; genre/chip changes keep
+            * the same key so browsing never re-fades mid-flow */}
+          <div key={route.name} className={immersive ? "" : "view-in"}>
+            {route.name === "home" && <HomeView />}
+            {route.name === "films" && (
+              <BrowseView kind="movie" key="films" genreSlug={route.genre} modeSlug={route.mode} />
+            )}
+            {route.name === "series" && (
+              <BrowseView kind="tv" key="series" genreSlug={route.genre} modeSlug={route.mode} />
+            )}
+            {route.name === "services" && <ServicesView />}
+            {route.name === "watchlist" && <WatchlistView />}
+            {route.name === "detail" && <DetailView type={route.type} id={route.id} />}
+            {route.name === "person" && <PersonView id={route.id} rank={route.rank} />}
+            {route.name === "collection" && <CollectionView id={route.id} />}
+            {route.name === "play" && (
+              <PlayerView type={route.type} id={route.id} season={route.season} episode={route.episode} />
+            )}
+          </div>
         </main>
         {!immersive && (
           <Footer onShowShortcuts={() => setShortcutsOpen(true)} />

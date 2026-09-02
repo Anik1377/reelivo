@@ -109,7 +109,7 @@ function ServicesInner({
   const items = (q.data?.pages ?? []).flatMap((p) => p.results).filter((i) => !i.adult);
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 pb-16 pt-24 md:px-8 md:pt-32">
+    <div className="mx-auto max-w-[1400px] px-4 pb-16 pt-24 md:px-8 md:pt-32 2xl:max-w-[1720px]">
       <SectionHead
         kicker="Where to watch"
         title="Browse by service"

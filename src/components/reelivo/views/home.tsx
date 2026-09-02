@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Info, Play, X } from "lucide-react";
+import { ArrowRight, Info, Play, X } from "lucide-react";
 import { hrefFor, navigate, useTmdb } from "@/lib/hooks";
 import { continueEntries, useReelivo } from "@/lib/store";
 import {
@@ -18,6 +18,7 @@ import {
   genreNames,
 } from "@/lib/format";
 import type { MediaItem, Paged, ProviderEntry, ProvidersList, TrendingPersons } from "@/lib/tmdb-types";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import {
   EmptyNote,
   ErrorNote,
@@ -71,7 +72,7 @@ function HeroSlide({
       <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/70 to-transparent" />
 
       <div className="absolute inset-x-0 bottom-0">
-        <div className="mx-auto max-w-[1400px] px-4 pb-9 md:px-8 md:pb-14">
+        <div className="mx-auto max-w-[1400px] px-4 pb-9 md:px-8 md:pb-14 2xl:max-w-[1720px]">
           <div className="max-w-2xl">
             <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-bold uppercase tracking-[0.18em]">
               <span className="text-primary">Nº{rank} trending this week</span>
@@ -104,7 +105,7 @@ function HeroSlide({
                 type="button"
                 tabIndex={active ? 0 : -1}
                 onClick={() => navigate(hrefFor({ name: "play", type, id: item.id }))}
-                className="inline-flex h-12 items-center gap-2 rounded-lg bg-white px-6 text-[14.5px] font-bold text-black shadow-[0_10px_30px_rgba(0,0,0,0.45)] transition-all duration-150 hover:-translate-y-0.5 hover:bg-white/90 active:translate-y-0 active:scale-[0.98]"
+                className="glow-primary inline-flex h-12 items-center gap-2 rounded-lg bg-white px-6 text-[14.5px] font-bold text-black transition-all duration-150 hover:-translate-y-0.5 hover:bg-white/90 active:translate-y-0 active:scale-[0.98]"
               >
                 <Play className="size-4.5 fill-current" aria-hidden />
                 Watch Free
@@ -172,7 +173,7 @@ function HeroCarousel({ items }: { items: MediaItem[] }) {
 
   return (
     <section
-      className="grain anim-rise relative h-[68vh] min-h-[440px] max-h-[780px] w-full touch-pan-y overflow-hidden md:h-[76vh]"
+      className="grain anim-rise relative h-[68vh] min-h-[440px] max-h-[780px] w-full touch-pan-y overflow-hidden md:h-[76vh] 2xl:min-h-[560px] 2xl:max-h-[900px]"
       aria-roledescription="carousel"
       aria-label="Trending this week — use left and right arrows to change slide"
       tabIndex={0}
@@ -248,6 +249,7 @@ function TopTen({ items }: { items: MediaItem[] }) {
                   type={type}
                   fluid
                   showScore={false}
+                  preview
                   sub={`${type === "movie" ? "Film" : "Series"} · ${yearOf(item)}`}
                 />
               </div>
@@ -420,6 +422,7 @@ function BecauseYouSaved() {
               key={i.id}
               item={i}
               type={(i.media_type as "movie" | "tv") ?? anchor.type}
+              preview
             />
           ))}
         </Rail>
@@ -548,6 +551,7 @@ function PremieringRail() {
               key={i.id}
               item={i}
               type="tv"
+              preview
               sub={`${(i.first_air_date ?? "") >= win.today ? "Premieres" : "Premiered"} ${dateOf(i)}`}
             />
           ))}
@@ -586,31 +590,61 @@ function TrendingPeopleRail() {
       ) : (
         <Rail label="trending people" ariaLabel="People trending this week">
           {people.map((p, idx) => (
-            <a
-              key={p.id}
-              href={hrefFor({ name: "person", id: p.id, rank: idx + 1 })}
-              className="w-[104px] shrink-0 text-center transition-transform duration-200 hover:scale-[1.04] md:w-[116px]"
-              aria-label={`${p.name} — № ${idx + 1} trending this week, profile and credits`}
-            >
-              <span className="relative mx-auto block w-[92px] md:w-[104px]">
-                <Img
-                  src={`https://image.tmdb.org/t/p/w185${p.profile_path}`}
-                  alt={p.name}
-                  fallbackTitle={p.name}
-                  className="aspect-square w-full rounded-full object-cover ring-1 ring-white/10 transition-shadow duration-200 hover:ring-primary/70"
-                />
-                <span
-                  aria-hidden
-                  className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full border border-primary/50 bg-black px-2 py-px text-[10px] font-bold tracking-wide text-primary tabular-nums"
+            <HoverCard key={p.id} openDelay={350} closeDelay={120}>
+              <HoverCardTrigger asChild>
+                <a
+                  href={hrefFor({ name: "person", id: p.id, rank: idx + 1 })}
+                  className="w-[104px] shrink-0 text-center transition-transform duration-200 hover:scale-[1.04] md:w-[116px]"
+                  aria-label={`${p.name} — № ${idx + 1} trending this week, profile and credits`}
                 >
-                  №{idx + 1}
-                </span>
-              </span>
-              <p className="mt-3 truncate text-[13px] font-semibold">{p.name}</p>
-              <p className="truncate text-xs text-ink-dim">
-                {[deptLabel(p), bestKnown(p)].filter(Boolean).join(" · ")}
-              </p>
-            </a>
+                  <span className="relative mx-auto block w-[92px] md:w-[104px]">
+                    <Img
+                      src={`https://image.tmdb.org/t/p/w185${p.profile_path}`}
+                      alt={p.name}
+                      fallbackTitle={p.name}
+                      className="aspect-square w-full rounded-full object-cover ring-1 ring-white/10 transition-shadow duration-200 hover:ring-primary/70"
+                    />
+                    <span
+                      aria-hidden
+                      className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full border border-primary/50 bg-black px-2 py-px text-[10px] font-bold tracking-wide text-primary tabular-nums"
+                    >
+                      №{idx + 1}
+                    </span>
+                  </span>
+                  <p className="mt-3 truncate text-[13px] font-semibold">{p.name}</p>
+                  <p className="truncate text-xs text-ink-dim">
+                    {[deptLabel(p), bestKnown(p)].filter(Boolean).join(" · ")}
+                  </p>
+                </a>
+              </HoverCardTrigger>
+              <HoverCardContent
+                side="top"
+                align="center"
+                sideOffset={12}
+                role="group"
+                aria-label={`${p.name} — trending person preview`}
+                className="w-[264px] rounded-xl border-white/10 bg-surface/95 p-0 shadow-[0_30px_80px_rgba(0,0,0,0.8)] backdrop-blur-md"
+              >
+                <div className="flex items-center gap-3 p-3.5">
+                  <Img
+                    src={`https://image.tmdb.org/t/p/w185${p.profile_path}`}
+                    alt=""
+                    fallbackTitle={p.name}
+                    className="size-14 shrink-0 rounded-full object-cover ring-1 ring-white/15"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-[13.5px] font-bold text-foreground">{p.name}</p>
+                    <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-snug text-ink-dim">
+                      {[deptLabel(p), bestKnown(p)].filter(Boolean).join(" · ")}
+                    </p>
+                    <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold tracking-wide text-primary uppercase">
+                      View profile
+                      <ArrowRight className="size-3" aria-hidden />
+                    </p>
+                  </div>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
           ))}
         </Rail>
       )}
@@ -650,7 +684,7 @@ export function HomeView() {
       )}
       <HeroCarousel items={items} />
 
-      <div className="mx-auto max-w-[1400px] space-y-10 px-4 md:space-y-14 md:px-8">
+      <div className="mx-auto max-w-[1400px] space-y-10 px-4 md:space-y-14 md:px-8 2xl:max-w-[1720px]">
         <div className="pt-10 md:pt-12">
           <ContinueStrip />
         </div>
@@ -680,7 +714,7 @@ export function HomeView() {
                 .filter((i) => i.backdrop_path || i.poster_path)
                 .slice(0, 14)
                 .map((i) => (
-                  <StillCard key={i.id} item={i} type="movie" sub={`${dateOf(i)} · Film`} />
+                  <StillCard key={i.id} item={i} type="movie" preview sub={`${dateOf(i)} · Film`} />
                 ))}
             </Rail>
           )}
@@ -711,7 +745,7 @@ export function HomeView() {
                 .filter((i) => i.backdrop_path || i.poster_path)
                 .slice(0, 14)
                 .map((i) => (
-                  <StillCard key={i.id} item={i} type="tv" sub={`${dateOf(i)} · Series`} />
+                  <StillCard key={i.id} item={i} type="tv" preview sub={`${dateOf(i)} · Series`} />
                 ))}
             </Rail>
           )}
@@ -737,7 +771,7 @@ export function HomeView() {
                 .filter((i) => i.backdrop_path || i.poster_path)
                 .slice(0, 14)
                 .map((i) => (
-                  <StillCard key={i.id} item={i} type="movie" />
+                  <StillCard key={i.id} item={i} type="movie" preview />
                 ))}
             </Rail>
           )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import {
   Bookmark,
@@ -577,6 +577,25 @@ function ReviewsSection({ id, type }: { id: number; type: "movie" | "tv" }) {
   );
   const total = q.data?.pages?.[0]?.total_results ?? reviews.length;
   const loadedAll = !q.hasNextPage;
+
+  // auto-fetch the next page once the loader row drifts into view (expanded mode)
+  // NOTE: hooks stay above the early return below — rules of hooks.
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = q;
+  const canAutoLoad = showAll && hasNextPage && !isFetchingNextPage;
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !canAutoLoad || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) fetchNextPage();
+      },
+      { rootMargin: "600px 0px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [canAutoLoad, fetchNextPage]);
+
   if (q.isPending || q.isError || reviews.length === 0) return null;
 
   const shown = showAll ? reviews : reviews.slice(0, 2);
@@ -630,7 +649,7 @@ function ReviewsSection({ id, type }: { id: number; type: "movie" | "tv" }) {
           <ReviewCard key={r.id} review={r} />
         ))}
       </ul>
-      <div className="mt-4 flex flex-wrap items-center gap-2.5">
+      <div ref={sentinelRef} className="mt-4 flex flex-wrap items-center gap-2.5">
         {reviews.length > 2 && (
           <button
             type="button"
@@ -658,7 +677,7 @@ function ReviewsSection({ id, type }: { id: number; type: "movie" | "tv" }) {
                 Fetching
               </>
             ) : (
-              `Load more (of ${total})`
+              `Loading more (of ${total})`
             )}
           </button>
         )}
@@ -1142,7 +1161,7 @@ export function DetailView({ type, id }: { type: "movie" | "tv"; id: number }) {
     return (
       <div aria-busy>
         <StillSkeleton className="h-[42vh] min-h-[300px] w-full" />
-        <div className="mx-auto max-w-[1400px] px-4 md:px-8">
+        <div className="mx-auto max-w-[1400px] 2xl:max-w-[1660px] px-4 md:px-8">
           <div className="-mt-24 flex flex-col gap-6 md:flex-row md:items-end">
             <StillSkeleton className="h-[192px] w-32 rounded-xl md:h-[336px] md:w-[224px]" />
             <div className="flex-1 space-y-3 pb-2">
@@ -1192,7 +1211,7 @@ export function DetailView({ type, id }: { type: "movie" | "tv"; id: number }) {
         <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/70 to-transparent" />
       </div>
 
-      <div className="mx-auto max-w-[1400px] px-4 md:px-8">
+      <div className="mx-auto max-w-[1400px] 2xl:max-w-[1660px] px-4 md:px-8">
         <div className="relative z-10 -mt-24 flex flex-col gap-6 md:-mt-32 md:flex-row md:items-end">
           <div className="w-32 shrink-0 md:w-[224px]">
             <Img
