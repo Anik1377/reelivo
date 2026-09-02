@@ -221,7 +221,7 @@ export function SearchDialog({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[14px] font-semibold text-foreground">
                         {person ? (
-                          <Match text={person.name} query={searching ? debounced : ""} />
+                          <Match text={titleOf(person)} query={searching ? debounced : ""} />
                         ) : (
                           <Match text={titleOf(item)} query={searching ? debounced : ""} />
                         )}

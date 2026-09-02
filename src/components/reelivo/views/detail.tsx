@@ -198,12 +198,14 @@ function TitleBlock({
 
   const facts: string[] = [];
   if (date) facts.push(yearOf({ release_date: date, first_air_date: date }));
-  if (type === "movie" && detail.runtime) facts.push(fmtRuntime(detail.runtime));
-  if (type === "tv" && detail.number_of_seasons)
-    facts.push(
-      `${detail.number_of_seasons} season${(detail.number_of_seasons ?? 0) > 1 ? "s" : ""}`
-    );
-  if (type === "tv" && detail.number_of_episodes) facts.push(`${detail.number_of_episodes} episodes`);
+  // Detail is a non-discriminated union; narrow via the route's type tag
+  // (same cast-alias convention as the metadata rows below).
+  const m = type === "movie" ? (detail as MovieDetail) : null;
+  const t = type === "tv" ? (detail as TvDetail) : null;
+  if (m?.runtime) facts.push(fmtRuntime(m.runtime));
+  if (t?.number_of_seasons)
+    facts.push(`${t.number_of_seasons} season${t.number_of_seasons > 1 ? "s" : ""}`);
+  if (t?.number_of_episodes) facts.push(`${t.number_of_episodes} episodes`);
 
   return (
     <div className="min-w-0 flex-1">

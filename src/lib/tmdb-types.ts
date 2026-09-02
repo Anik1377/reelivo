@@ -38,6 +38,7 @@ export interface MovieDetail {
   vote_average?: number;
   vote_count?: number;
   release_date?: string;
+  first_air_date?: string; // absent in the movie payload, kept optional so union code can read both
   runtime?: number | null;
   genres?: { id: number; name: string }[];
   original_language?: string;
@@ -70,6 +71,7 @@ export interface TvDetail {
   backdrop_path?: string | null;
   vote_average?: number;
   vote_count?: number;
+  release_date?: string; // absent in the tv payload, kept optional so union code can read both
   first_air_date?: string;
   last_air_date?: string | null;
   number_of_seasons?: number;
@@ -223,6 +225,7 @@ export interface PersonCredit {
   popularity?: number;
   character?: string;
   job?: string;
+  department?: string;
   episode_count?: number;
 }
 

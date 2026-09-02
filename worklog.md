@@ -282,3 +282,28 @@ Stage Summary:
 - The app now reads like a premium OTT on big screens: wider shells, 5-up browse, taller hero, bigger cards; interactions gained Netflix-style preview pop cards (titles + people), hide-on-scroll chrome, scroll progress, route transitions, and a glowing hero CTA — all inside the black/cyan token set, all reduced-motion safe.
 - Known/unchanged: (hover:hover)=false in sandbox → hover visuals verified via synthetic pointer events only; ContinueStrip cards (custom item shape) intentionally without preview; RailSkeleton width not yet 2xl-matched; Videasy banner, TMDB Prime Video logo text, YouTube bot-check, SW prod-only (carried over).
 - Next-phase recommendations: 1) pop cards on browse grid cards + watchlist rows; 2) keyboard rail navigation (roving tabindex / arrow-key focus movement); 3) RailSkeleton 2xl match; 4) framer-motion spring for CardPreview scale-in if CSS zoom-95 feels flat on big screens; 5) "Airs this week" home rail; 6) PWA SW VERSION bump on next deploy.
+
+---
+Task ID: 15 (user request — "fix the errors")
+Agent: Z.ai Code (main)
+Task: Fix all reported/existing errors — full TS type-check cleanup + runtime QA sweep
+
+Work Log:
+- Baseline first: agent-browser fresh-load sweep of home/detail/browse/services/watchlist/person/play at 1440×900 → console & page errors CLEAN; lint clean. Dev-log archaeology: `ReferenceError: lead is not defined` (home.tsx:437) and `Module not found: ../folder-picker` (media.tsx:10) were mid-edit HMR crashes from the previous session's tail — both transient, current code correct; `Failed to load dynamic font for ★` (og route) predates the SVG-star fix, re-tested /api/og generic+per-title → 200, no new font errors.
+- REAL FINDING: `bunx tsc --noEmit` — 22 type errors in app source (dev runtime hides them; IDE/CI/build would surface). Fixed all:
+  1) hooks.ts hrefFor param union: person variant lost `rank?: number` (Route export had it; hrefFor's inline union didn't — Task-12 feature regression in typing only). Restored.
+  2) format.ts poster(): size union widened `"w185"|"w342"` → + `"w780"` (home hero / collection hero / detail backdrop pass w780).
+  3) tmdb-types: MovieDetail += `first_air_date?`, TvDetail += `release_date?` (union code reads both date fields via `in` guard — now type-safe both branches); PersonCredit += `department?` (person.tsx dept-grouping).
+  4) detail.tsx TitleBlock facts: `type==="movie" && detail.runtime` doesn't narrow a non-discriminated union → cast-alias pattern (matches existing convention at lines 698/718): `const m = type==="movie" ? detail as MovieDetail : null` (+ tv twin); facts row behavior identical.
+  5) page.tsx generateMetadata: `(overview ? … : false) ?? fallback` — `false` isn't nullish → unreachable-right-operand + `string|false` leaking into 3 Metadata fields; `: false` → `: null`.
+  6) search-dialog: person row `text={person.name}` (`string|undefined`) → `text={titleOf(person)}` (same fallback language as the media row beside it).
+  7) browse.tsx MODE_KEYS: `Set<Mode>` → `ReadonlySet<string>` (`.has(genreSlug:string)` now type-checks; `as Mode` casts unchanged).
+- tsconfig excludes scaffold dirs (examples/skills/mini-services/tool-results/upload/download/tests/.zscripts) — tsc now reports ZERO errors repo-wide.
+- Verified E2E (agent-browser): rank hrefs `#/person/{id}/N` intact; Endgame facts "2019 · 3h 1m"; GoT facts "8 seasons · 73 episodes"; save → toast "File into…" → FolderPicker dialog → "+ New list…" → typed → Add → dialog closes + "Filed under" toast; watchlist shows the new "Weekend marathon" folder chip; search dialog media+person rows render; `?go=movie/299534` share URL → og:title/description/image all correct (description falls back properly — the page.tsx fix renders); collection/86311 renders 6 film rows + original backdrop (note: `#/collection/863` 404 is a nonexistent TMDB id, not a bug — collection IS allowlisted, curl coll-531241 200); mobile 390×844 sweep of 5 routes → clean; console clean throughout; lint clean.
+- Files touched: src/lib/hooks.ts, src/lib/format.ts, src/lib/tmdb-types.ts, src/app/page.tsx, src/app/../tsconfig.json, src/components/reelivo/search-dialog.tsx, src/components/reelivo/views/browse.tsx, src/components/reelivo/views/detail.tsx.
+
+Stage Summary:
+- The repo is now error-free at every layer: tsc 0 errors, eslint clean, dev.log quiet (no new runtime errors), all routes verified live on desktop + mobile, no console noise.
+- Discovered-but-fine: folder-picker feature (from the crashed previous session) was already complete on disk and now E2E-verified; its earlier broken import was the source of the media.tsx module-not-found noise in dev.log.
+- Known/unchanged: hover states unverifiable in sandbox; Videasy shutdown banner; TMDB Prime Video logo baked-in text; YouTube bot-check headless-only; SW prod-only.
+- Next-phase recommendations: 1) resume the immersive/long-run track (Task-14 recs: pop cards on browse grid + watchlist rows, keyboard rail nav, RailSkeleton 2xl match, framer-motion spring for pop cards, "Airs this week" rail); 2) add `typecheck` script (`tsc --noEmit`) to package.json so CI catches drift; 3) push to GitHub needs a fresh PAT (old one advised to be revoked) — commit locally meanwhile; 4) PWA SW VERSION bump on next deploy.

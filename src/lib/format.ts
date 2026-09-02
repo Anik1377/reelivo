@@ -9,7 +9,7 @@ export function still(
   return path ? `${IMG}/${size}${path}` : null;
 }
 
-export function poster(path?: string | null, size: "w185" | "w342" = "w342") {
+export function poster(path?: string | null, size: "w185" | "w342" | "w780" = "w342") {
   return path ? `${IMG}/${size}${path}` : null;
 }
 

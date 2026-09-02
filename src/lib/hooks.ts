@@ -65,7 +65,7 @@ export function hrefFor(
     | { name: "home" | "services" | "watchlist" }
     | { name: "films" | "series"; genre?: string; mode?: string }
     | { name: "detail"; type: MediaType; id: number }
-    | { name: "person"; id: number }
+    | { name: "person"; id: number; rank?: number }
     | { name: "collection"; id: number }
     | { name: "play"; type: MediaType; id: number; season?: number; episode?: number }
 ): string {

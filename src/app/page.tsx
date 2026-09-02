@@ -103,7 +103,7 @@ export async function generateMetadata({
   }
 
   const ogDescription =
-    (title.overview ? `${title.overview.slice(0, 157)}…` : false) ??
+    (title.overview ? `${title.overview.slice(0, 157)}…` : null) ??
     "See where it streams and press play — free, no account needed.";
 
   return {

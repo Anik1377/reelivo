@@ -17,7 +17,7 @@ const MODES: { key: Mode; label: string }[] = [
   { key: "newest", label: "Newest" },
 ];
 
-const MODE_KEYS = new Set(MODES.map((m) => m.key));
+const MODE_KEYS: ReadonlySet<string> = new Set(MODES.map((m) => m.key));
 
 const EMPTY_RESULTS: MediaItem[] = [];
 
