@@ -1,0 +1,126 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useHashRoute, type Route } from "@/lib/hooks";
+import { TopBar } from "./top-bar";
+import { MobileNav } from "./mobile-nav";
+import { Footer } from "./footer";
+import { SearchDialog } from "./search-dialog";
+import { ShortcutsDialog } from "./shortcuts-dialog";
+import { BackToTop } from "./bits";
+import { InstallPill } from "./install-pill";
+import { FolderPicker } from "./folder-picker";
+import { HomeView } from "./views/home";
+import { BrowseView } from "./views/browse";
+import { ServicesView } from "./views/services";
+import { WatchlistView } from "./views/watchlist";
+import { DetailView } from "./views/detail";
+import { PersonView } from "./views/person";
+import { CollectionView } from "./views/collection";
+import { PlayerView } from "./views/player";
+
+function isTypingTarget(e: KeyboardEvent) {
+  const t = e.target as HTMLElement | null;
+  if (!t) return false;
+  const tag = t.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable;
+}
+
+export function ReelivoApp() {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: { queries: { refetchOnWindowFocus: false } },
+      })
+  );
+
+  const route = useHashRoute();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  /* Shared links may arrive as /?go=movie/155 (query deep-links are visible to
+   * the server, so they carry per-title OG cards). Convert once on mount:
+   * move the target into the hash route and strip the query from the URL. */
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const go = sp.get("go");
+    if (!go) return;
+    sp.delete("go");
+    const qs = sp.toString();
+    history.replaceState(
+      null,
+      "",
+      window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash
+    );
+    if (/^(movie|tv)\/\d+$/.test(go)) {
+      window.location.hash = `#/${go}`;
+    }
+  }, []);
+
+  useEffect(() => {
+    /* PWA offline shell — production only, dev HMR stays untouched. */
+    if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      } else if (e.key === "/" && !isTypingTarget(e)) {
+        e.preventDefault();
+        setSearchOpen(true);
+      } else if (e.key === "?" && !isTypingTarget(e)) {
+        e.preventDefault();
+        setSearchOpen(false);
+        setShortcutsOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const immersive = route.name === "play";
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <div className="flex min-h-screen flex-col bg-background">
+        {!immersive && <TopBar route={route as Route} onOpenSearch={() => setSearchOpen(true)} />}
+        <main id="main" className="flex-1">
+          {route.name === "home" && <HomeView />}
+          {route.name === "films" && (
+            <BrowseView kind="movie" key="films" genreSlug={route.genre} modeSlug={route.mode} />
+          )}
+          {route.name === "series" && (
+            <BrowseView kind="tv" key="series" genreSlug={route.genre} modeSlug={route.mode} />
+          )}
+          {route.name === "services" && <ServicesView />}
+          {route.name === "watchlist" && <WatchlistView />}
+          {route.name === "detail" && <DetailView type={route.type} id={route.id} />}
+          {route.name === "person" && <PersonView id={route.id} rank={route.rank} />}
+          {route.name === "collection" && <CollectionView id={route.id} />}
+          {route.name === "play" && (
+            <PlayerView type={route.type} id={route.id} season={route.season} episode={route.episode} />
+          )}
+        </main>
+        {!immersive && (
+          <Footer onShowShortcuts={() => setShortcutsOpen(true)} />
+        )}
+        {!immersive && <MobileNav route={route as Route} onOpenSearch={() => setSearchOpen(true)} />}
+        {!immersive && <BackToTop />}
+        {!immersive && <InstallPill />}
+        {!immersive && <div className="h-14 md:hidden" aria-hidden />}
+        <SearchDialog
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
+          onShowShortcuts={() => setShortcutsOpen(true)}
+        />
+        <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+        <FolderPicker />
+      </div>
+    </QueryClientProvider>
+  );
+}
