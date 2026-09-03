@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
 import { ArrowUpRight, Play, RotateCcw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { hrefFor, navigate } from "@/lib/hooks";
-import { poster, still } from "@/lib/format";
+import { hrefFor, navigate, tmdbFetch } from "@/lib/hooks";
+import { dayIso, poster, still } from "@/lib/format";
 import { useReelivo, type HistoryEntry } from "@/lib/store";
 import { Button } from "@/components/ui/button";
+import { DnaDetail, DnaPanel, TitleRef, uniqueTitles } from "../dna-panel";
 import { EmptyNote, Img } from "../bits";
 
 /* ------------------------------- formatting -------------------------------- */
@@ -40,6 +42,110 @@ function statusOf(e: HistoryEntry): string {
   if (e.pct >= FINISHED) return "Finished";
   if (e.pct > 0) return `${Math.round(e.pct * 100)}% watched`;
   return "Started";
+}
+
+/* ------------------------------- stats strip ------------------------------- */
+
+/* Pure-UTC date maths (Task-29 rule) — dayIso() buckets, streak walks the UTC
+ * calendar. The strip only renders once history exists, i.e. post-rehydrate
+ * on the client, so clock reads here follow the same discipline as timeAgo. */
+
+const DAY_MS = 86_400_000;
+const FILM_MIN_ESTIMATE = 45;
+const EPISODE_MIN_ESTIMATE = 42;
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 bg-surface-2 px-4 py-3.5">
+      <p className="tabular display text-xl leading-none text-white md:text-2xl">{value}</p>
+      <p className="mt-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-ink-dim">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function computeStats(
+  history: HistoryEntry[],
+  runtimeTitles: TitleRef[],
+  runtimes: { data?: DnaDetail }[]
+) {
+  /* known runtimes, from the same cache the DNA panel / detail pages fill */
+  const runtimeOf = new Map<string, number>();
+  runtimeTitles.forEach((t, i) => {
+    const d = runtimes[i]?.data;
+    if (!d) return;
+    const mins =
+      d.runtime && d.runtime > 0 ? d.runtime : (d.episode_run_time ?? []).find((r) => r > 0);
+    if (mins) runtimeOf.set(`${t.type}-${t.id}`, mins);
+  });
+
+  const days = new Set<string>();
+  let minutes = 0;
+  for (const e of history) {
+    days.add(dayIso(new Date(e.watchedAt)));
+    const frac = e.pct >= FINISHED ? 1 : Math.min(1, Math.max(0, e.pct));
+    const base =
+      runtimeOf.get(`${e.type}-${e.id}`) ??
+      (e.type === "tv" ? EPISODE_MIN_ESTIMATE : FILM_MIN_ESTIMATE);
+    minutes += base * frac;
+  }
+
+  /* consecutive UTC days ending today — or yesterday, if today hasn't happened */
+  const now = new Date();
+  let cursor = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  if (!days.has(dayIso(new Date(cursor)))) cursor -= DAY_MS;
+  let streak = 0;
+  while (days.has(dayIso(new Date(cursor)))) {
+    streak += 1;
+    cursor -= DAY_MS;
+  }
+
+  const hours = minutes / 60;
+  const hoursLabel =
+    hours <= 0 ? "0h" : `≈ ${hours >= 10 ? Math.round(hours) : Math.round(hours * 10) / 10}h`;
+
+  return {
+    titles: uniqueTitles(history).length,
+    hoursLabel,
+    activeDays: days.size,
+    streak,
+  };
+}
+
+function StatsStrip({ history }: { history: HistoryEntry[] }) {
+  /* Cache-only detail reads: enabled:false never fetches — the DNA panel's
+   * queries (and any detail page) populate these exact keys, and this strip
+   * refines its hours estimate as they land. Capped at the DNA window. */
+  const runtimeTitles = useMemo(() => uniqueTitles(history).slice(0, 24), [history]);
+  const runtimeQ = useQueries({
+    queries: runtimeTitles.map((t) => ({
+      queryKey: ["tmdb", `${t.type}/${t.id}`, {}] as const,
+      queryFn: () => tmdbFetch<DnaDetail>(`${t.type}/${t.id}`),
+      enabled: false,
+    })),
+  });
+
+  const stats = computeStats(history, runtimeTitles, runtimeQ);
+
+  /* the director page's hairline grid: real dividers at any column count */
+  return (
+    <section aria-label="Watching stats" className="mt-8">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.06] sm:grid-cols-4">
+        <Stat label="Titles watched" value={String(stats.titles)} />
+        <Stat label="Hours watched" value={stats.hoursLabel} />
+        <Stat label="Active days" value={String(stats.activeDays)} />
+        <Stat
+          label="Current streak"
+          value={stats.streak === 1 ? "1 day" : `${stats.streak} days`}
+        />
+      </div>
+      <p className="mt-2 text-[11px] leading-relaxed text-white/30">
+        Hours are estimated — real runtimes where analysed, ≈45-min films and
+        ≈42-min episodes otherwise. Days and streaks follow the UTC calendar.
+      </p>
+    </section>
+  );
 }
 
 function playHrefOf(e: HistoryEntry): string {
@@ -171,7 +277,7 @@ export function HistoryView() {
           <p className="mt-2 text-[13px] leading-relaxed text-ink-dim">
             {plays === 0
               ? "Everything you press play on lands here."
-              : `${plays} ${plays === 1 ? "title" : "titles"} — saved to this profile on this device.`}
+              : `${plays} ${plays === 1 ? "play" : "plays"} — saved to this profile on this device.`}
           </p>
         </div>
         {plays > 0 && (
@@ -225,24 +331,30 @@ export function HistoryView() {
           </div>
         </div>
       ) : (
-        <div className="mt-8">
-          {groups.map((g) => (
-            <section key={g.label} aria-label={g.label} className="mt-7 first:mt-0">
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink-dim">
-                {g.label}
-              </h2>
-              <ul className="mt-1 divide-y divide-white/[0.05]">
-                {g.items.map((e) => (
-                  <HistoryRow key={e.key} entry={e} />
-                ))}
-              </ul>
-            </section>
-          ))}
+        <>
+          <StatsStrip history={history} />
+          <DnaPanel history={history} />
+
+          <div className="mt-8">
+            {groups.map((g) => (
+              <section key={g.label} aria-label={g.label} className="mt-7 first:mt-0">
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink-dim">
+                  {g.label}
+                </h2>
+                <ul className="mt-1 divide-y divide-white/[0.05]">
+                  {g.items.map((e) => (
+                    <HistoryRow key={e.key} entry={e} />
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+
           <p className="mt-8 text-[11.5px] leading-relaxed text-white/30">
             History keeps the latest 100 plays. Clearing it never touches your list or resume
             queue.
           </p>
-        </div>
+        </>
       )}
     </div>
   );

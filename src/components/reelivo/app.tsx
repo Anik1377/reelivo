@@ -11,6 +11,7 @@ import { SearchDialog } from "./search-dialog";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 import { BackToTop, ScrollProgress } from "./bits";
 import { InstallPill } from "./install-pill";
+import { MiniPlayer } from "./mini-player";
 import { FolderPicker } from "./folder-picker";
 import { ProfileGate, ProfileEditor, ProfilePinDialog } from "./profiles";
 import { HomeView } from "./views/home";
@@ -18,6 +19,8 @@ import { BrowseView } from "./views/browse";
 import { ServicesView } from "./views/services";
 import { WatchlistView } from "./views/watchlist";
 import { HistoryView } from "./views/history";
+import { CalendarView } from "./views/calendar";
+import { SharedListView } from "./views/shared";
 import { DetailView } from "./views/detail";
 import { PersonView } from "./views/person";
 import { DirectorView } from "./views/director";
@@ -116,6 +119,8 @@ export function ReelivoApp() {
   const profiles = useReelivo((s) => s.profiles);
   const activeProfileId = useReelivo((s) => s.activeProfileId);
   const unlocked = useReelivo((s) => s.unlocked);
+  const miniStream = useReelivo((s) => s.miniStream);
+  const gateMode = deriveGate(gate, profiles, activeProfileId, unlocked);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -136,6 +141,8 @@ export function ReelivoApp() {
             {route.name === "services" && <ServicesView />}
             {route.name === "watchlist" && <WatchlistView />}
             {route.name === "history" && <HistoryView />}
+            {route.name === "calendar" && <CalendarView />}
+            {route.name === "shared" && <SharedListView />}
             {route.name === "detail" && <DetailView type={route.type} id={route.id} />}
             {route.name === "person" && <PersonView id={route.id} rank={route.rank} />}
             {route.name === "director" && <DirectorView id={route.id} />}
@@ -151,6 +158,11 @@ export function ReelivoApp() {
         {!immersive && <MobileNav route={route as Route} onOpenSearch={() => setSearchOpen(true)} />}
         {!immersive && <BackToTop />}
         {!immersive && <InstallPill />}
+        {/* Continue-anywhere mini card (Task 32 wave 3-a): only outside the
+         * immersive play route, only once the profile gate is through, and
+         * only when 3-b's player parked a stream — miniStream is ephemeral
+         * (never persisted), so it is hydration-safe by construction. */}
+        {!immersive && gateMode === "off" && miniStream && <MiniPlayer />}
         {!immersive && <div className="h-14 md:hidden" aria-hidden />}
         <SearchDialog
           open={searchOpen}
@@ -161,7 +173,7 @@ export function ReelivoApp() {
         <FolderPicker />
         <ProfileEditor />
         <ProfilePinDialog />
-        {deriveGate(gate, profiles, activeProfileId, unlocked) !== "off" && <ProfileGate />}
+        {gateMode !== "off" && <ProfileGate />}
       </div>
     </QueryClientProvider>
   );

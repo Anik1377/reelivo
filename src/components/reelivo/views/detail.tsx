@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   Bookmark,
   BookmarkCheck,
@@ -10,11 +10,14 @@ import {
   Clapperboard,
   ExternalLink,
   MessageSquareQuote,
+  Minus,
   Play,
+  Plus,
   Share2,
   Star,
 } from "lucide-react";
 import { toast } from "sonner";
+import type { VerdictResponse } from "@/lib/ai-types";
 import { hrefFor, navigate, tmdbFetch, useDetailStaleTime, usePrefetchDetail, useTmdb } from "@/lib/hooks";
 import { progressKey, useReelivo } from "@/lib/store";
 import {
@@ -705,6 +708,147 @@ function ReviewsSection({ id, type }: { id: number; type: "movie" | "tv" }) {
   );
 }
 
+/* ------------------------------- AI verdict -------------------------------- */
+
+/* The API distills + caches each verdict for 24h server-side — mirror that
+ * client-side so revisits never re-hit the LLM pipeline. */
+const VERDICT_STALE_TIME = 24 * 60 * 60 * 1000;
+
+const VERDICT_CHIPS: Record<
+  NonNullable<VerdictResponse["score"]>,
+  { chip: string; label: string }
+> = {
+  positive: { chip: "bg-primary text-primary-foreground", label: "Audiences mostly loved it" },
+  mixed: { chip: "bg-white/10 text-foreground", label: "Audiences were split" },
+  negative: { chip: "bg-destructive text-white", label: "Audiences were underwhelmed" },
+};
+
+/**
+ * AI verdict — distills TMDB audience reviews (server pipeline, wave 1-a) into
+ * a score chip, two-column pros/cons and one editorial pull-quote, sitting
+ * above the human reviews. Silent by design: a kids profile, a no-reviews
+ * verdict, or any API/network error all render NOTHING — the panel must never
+ * be noise. It mounts only once the detail data is present (type+id known),
+ * and the query is disabled until then.
+ */
+function VerdictPanel({ type, id }: { type: "movie" | "tv"; id: number }) {
+  const kids = useReelivo(
+    (s) => s.profiles.find((p) => p.id === s.activeProfileId)?.kids ?? false
+  );
+  const q = useQuery<VerdictResponse>({
+    queryKey: ["verdict", type, id],
+    queryFn: async () => {
+      const res = await fetch(`/api/ai/verdict?type=${type}&id=${id}`);
+      if (!res.ok) throw new Error(`verdict ${res.status}`); // handled silently below
+      return (await res.json()) as VerdictResponse;
+    },
+    enabled: id > 0 && !kids, // kids profiles never fetch — and never render
+    staleTime: VERDICT_STALE_TIME,
+    retry: 1,
+  });
+
+  if (kids) return null;
+
+  // compact shimmer skeleton, sized close to the settled card so nothing jumps
+  if (q.isPending) {
+    return (
+      <section
+        aria-label="AI verdict"
+        aria-busy
+        className="rounded-xl border border-white/[0.06] bg-surface p-5"
+      >
+        <div className="skeleton h-4 w-40 rounded-md" />
+        <div className="skeleton mt-4 h-[52px] w-full rounded-md" />
+        <div className="skeleton mt-5 h-12 w-11/12 rounded-md" />
+      </section>
+    );
+  }
+
+  // ok:false ("no-reviews" or anything else), HTTP errors, junk payload → nothing
+  const v = q.data;
+  if (q.isError || !v || v.ok !== true || !v.score || typeof v.verdict !== "string") return null;
+
+  const chip = VERDICT_CHIPS[v.score];
+  const pros = (v.pros ?? []).slice(0, 3);
+  const cons = (v.cons ?? []).slice(0, 2);
+
+  return (
+    <section
+      aria-label="AI verdict"
+      className="rounded-xl border border-white/[0.06] bg-surface p-5"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="kicker text-primary">AI verdict</p>
+        <span
+          className={`rounded-full px-2.5 py-1 text-[10.5px] font-bold tracking-wide ${chip.chip}`}
+        >
+          {chip.label}
+        </span>
+      </div>
+
+      {(pros.length > 0 || cons.length > 0) && (
+        <div
+          className={`mt-4 grid gap-x-8 gap-y-3 ${
+            pros.length > 0 && cons.length > 0 ? "sm:grid-cols-2" : ""
+          }`}
+        >
+          {pros.length > 0 && (
+            <ul className="space-y-2.5">
+              {pros.map((p, i) => (
+                <li
+                  key={`pro-${i}`}
+                  className="flex items-start gap-2 text-[13.5px] leading-snug text-foreground/85"
+                >
+                  <Plus className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+                  <span className="min-w-0">{p}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {cons.length > 0 && (
+            <ul className="space-y-2.5">
+              {cons.map((c, i) => (
+                <li
+                  key={`con-${i}`}
+                  className="flex items-start gap-2 text-[13.5px] leading-snug text-foreground/70"
+                >
+                  <Minus className="mt-0.5 size-3.5 shrink-0 text-ink-dim" aria-hidden />
+                  <span className="min-w-0">{c}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <blockquote className="mt-5 border-l-2 border-primary/50 pl-4">
+        <p className="display max-w-2xl text-[17px] leading-snug text-white md:text-[18.5px]">
+          {v.verdict}
+        </p>
+      </blockquote>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-white/[0.06] pt-3">
+        <p className="text-[11px] text-ink-dim/80">
+          {typeof v.basis === "number" && v.basis > 0
+            ? `Distilled from ${v.basis} audience reviews · `
+            : ""}
+          AI summary, may be imperfect
+        </p>
+        <details className="group/disc">
+          <summary className="cursor-pointer list-none text-[11px] font-semibold text-ink-dim transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+            How is this made?
+          </summary>
+          <p className="mt-2 max-w-md text-[11.5px] leading-relaxed text-ink-dim">
+            An AI model reads the TMDB audience reviews for this title and distills the
+            recurring praise and criticism into one short take. It can get things wrong —
+            the member reviews below are the real record.
+          </p>
+        </details>
+      </div>
+    </section>
+  );
+}
+
 function Facts({ detail, type, credits }: { detail: Detail; type: "movie" | "tv"; credits?: Credits }) {
   const crew = credits?.crew ?? [];
   const directors = crew.filter((c) => c.job === "Director" || c.job === "Series Director");
@@ -1273,6 +1417,9 @@ export function DetailView({ type, id }: { type: "movie" | "tv"; id: number }) {
             {type === "tv" && tvDetail && (
               <Episodes detail={tvDetail} seasonNo={seasonNo} onSeasonChange={setSeasonNo} />
             )}
+
+            {/* verdict first, then human reviews reads naturally */}
+            <VerdictPanel type={type} id={id} />
 
             <ReviewsSection id={id} type={type} />
 

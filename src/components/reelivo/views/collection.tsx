@@ -1,27 +1,33 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { Play } from "lucide-react";
+import { Check, Play, RotateCcw } from "lucide-react";
 import { hrefFor, navigate, useDetailStaleTime, usePrefetchDetail, useTmdb } from "@/lib/hooks";
 import { dek, poster, score, still, yearOf } from "@/lib/format";
-import { progressKey, useReelivo } from "@/lib/store";
+import { progressKey, useReelivo, type ProgressEntry } from "@/lib/store";
 import type { CollectionDetail, MediaItem } from "@/lib/tmdb-types";
 import { ErrorNote, Img, LostLink, StillSkeleton } from "../bits";
 
 /* A franchise viewing order — parts sorted by release, with personal progress. */
 
-function PartRow({ part, index }: { part: MediaItem; index: number }) {
+/** Shared part-progress math (Task 7's row badges + wave 2-e's saga strip):
+ * pct 0..100 from the active profile's progress mirror, watched at the same
+ * 95% line the row badges have always used — one predicate, no drift. */
+function partProgress(progress: Record<string, ProgressEntry>, part: MediaItem) {
   const type = (part.media_type as "movie" | "tv") ?? "movie";
-  const title = part.title ?? part.name ?? "Untitled";
-  const prefetch = usePrefetchDetail();
-  const progress = useReelivo((s) => s.progress);
-
   const entry = progress[progressKey(part.id, type)];
   const pct =
     entry && entry.duration > 0
       ? Math.min(100, Math.round((entry.timestamp / entry.duration) * 100))
       : 0;
-  const watched = pct >= 95;
+  return { type, entry, pct, watched: pct >= 95 };
+}
+
+function PartRow({ part, index }: { part: MediaItem; index: number }) {
+  const title = part.title ?? part.name ?? "Untitled";
+  const prefetch = usePrefetchDetail();
+  const progress = useReelivo((s) => s.progress);
+  const { type, pct, watched } = partProgress(progress, part);
   const open = () => navigate(hrefFor({ name: "detail", type, id: part.id }));
 
   return (
@@ -100,6 +106,101 @@ function PartRow({ part, index }: { part: MediaItem; index: number }) {
         </button>
       </div>
     </li>
+  );
+}
+
+/* ------------------------------ saga progress ------------------------------ */
+
+/** "You've watched 2 of 3 parts" + a slim segmented bar + the next-part CTA.
+ * Derives purely from the progress mirror (the same store read the part rows
+ * use), so SSR and the first client render agree (empty) and live progress
+ * updates re-render the strip like any other subscriber. Quiet states: no
+ * progress at all → just "N-part saga" meta; fewer than 2 parts → nothing. */
+function SagaProgress({ parts }: { parts: MediaItem[] }) {
+  const progress = useReelivo((s) => s.progress);
+
+  const states = useMemo(
+    () => parts.map((part) => ({ part, ...partProgress(progress, part) })),
+    [parts, progress]
+  );
+  const watchedCount = states.filter((s) => s.watched).length;
+  const touchedCount = states.filter((s) => s.entry).length;
+
+  if (parts.length < 2) return null;
+
+  // zero entries anywhere — a quiet count, no bar, no CTA
+  if (touchedCount === 0) {
+    return <p className="mt-4 text-[12.5px] text-ink-dim">{parts.length}-part saga</p>;
+  }
+
+  const complete = watchedCount === parts.length;
+  const next = states.find((s) => !s.watched); // release order → first unwatched
+  const titleOf = (p: MediaItem) => p.title ?? p.name ?? "Untitled";
+
+  return (
+    <div className="mt-4 rounded-xl border border-white/[0.06] bg-surface px-4 py-3.5">
+      {complete ? (
+        <p className="flex items-center gap-2 text-[13.5px] font-semibold text-white">
+          <Check className="size-4 shrink-0 text-primary" aria-hidden />
+          Saga complete — rewatch anytime
+        </p>
+      ) : (
+        <p className="text-[13px] text-white/70">
+          You&rsquo;ve watched <span className="font-semibold text-white">{watchedCount}</span> of{" "}
+          {parts.length} parts
+        </p>
+      )}
+
+      {/* slim segmented bar — watched segments filled cyan, in-flight ones filled
+        * to their exact %, untouched ones stay a quiet white/10 track */}
+      <div className="mt-2.5 flex gap-1.5" aria-hidden>
+        {states.map(({ part, pct, watched }) => (
+          <span
+            key={part.id}
+            className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-white/10"
+          >
+            {watched ? (
+              <span className="absolute inset-0 rounded-full bg-primary" />
+            ) : pct > 0 ? (
+              <span
+                className="absolute inset-y-0 left-0 rounded-full bg-primary"
+                style={{ width: `${pct}%` }}
+              />
+            ) : null}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
+        {complete ? (
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                hrefFor({ name: "play", type: states[0].type, id: states[0].part.id })
+              )
+            }
+            className="inline-flex h-11 items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-5 text-[13px] font-semibold text-white/80 transition-colors duration-150 hover:border-white/30 hover:text-white"
+          >
+            <RotateCcw className="size-3.5" aria-hidden />
+            Start over
+          </button>
+        ) : next ? (
+          <button
+            type="button"
+            onClick={() => navigate(hrefFor({ name: "play", type: next.type, id: next.part.id }))}
+            className="inline-flex h-11 min-w-0 max-w-full items-center gap-2 rounded-full bg-white px-5 text-[13px] font-bold text-black transition-all duration-150 hover:bg-white/85 active:scale-[0.97]"
+            aria-label={`Play part ${states.indexOf(next) + 1}, ${titleOf(next.part)}, free`}
+          >
+            <Play className="size-4 shrink-0 fill-current" aria-hidden />
+            <span className="truncate">
+              Continue the saga — Part {String(states.indexOf(next) + 1).padStart(2, "0")}:{" "}
+              {titleOf(next.part)}
+            </span>
+          </button>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -189,6 +290,10 @@ export function CollectionView({ id }: { id: number }) {
             </span>
             <span className="text-ink-dim">in release order</span>
           </p>
+
+          {/* saga progress — visible from 2 parts on, quiet until you press play */}
+          <SagaProgress parts={parts} />
+
           {q.data.overview && (
             <p className="mt-3 max-w-2xl text-[14.5px] leading-relaxed text-foreground/85">
               {dek(q.data.overview)}

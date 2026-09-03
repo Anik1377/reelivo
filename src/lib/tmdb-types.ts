@@ -28,6 +28,13 @@ export interface Paged<T> {
   total_results: number;
 }
 
+/** /movie/upcoming — `dates` is the theatrical window TMDB is currently
+ * serving (the rail/calendar labels it as "in the next month"). */
+export interface UpcomingResults {
+  dates: { maximum: string; minimum: string };
+  results: MediaItem[];
+}
+
 export interface MovieDetail {
   id: number;
   title: string;
@@ -84,17 +91,20 @@ export interface TvDetail {
   networks?: { id: number; name: string; logo_path: string | null }[];
   created_by?: { id: number; name: string }[];
   seasons?: TvSeasonSummary[];
-  next_episode_to_air?: NextEpisode | null;
-  last_episode_to_air?: NextEpisode | null;
+  next_episode_to_air?: EpisodeAir | null;
+  last_episode_to_air?: EpisodeAir | null;
 }
 
-export interface NextEpisode {
+/** Strict shape of the next/last episode blocks on the /tv/{id} payload —
+ * what calendar/reminders and the "next ep" chip read. */
+export interface EpisodeAir {
   id: number;
-  name?: string;
-  air_date?: string | null;
-  season_number?: number;
-  episode_number?: number;
-  still_path?: string | null;
+  air_date: string | null;
+  season_number: number;
+  episode_number: number;
+  name: string;
+  still_path: string | null;
+  overview: string;
 }
 
 export interface TvSeasonSummary {
@@ -268,6 +278,20 @@ export interface Reviews {
   total_results?: number;
 }
 
+/** Minimal review shape for surfaces that only render text (shared lists,
+ * assistant digests); the detail page keeps the richer ReviewResult/Reviews
+ * pair with author_details. */
+export interface ReviewItem {
+  id: string;
+  author: string;
+  content: string;
+  created_at: string;
+}
+
+export interface ReviewsResults {
+  results: ReviewItem[];
+}
+
 export interface TrendingPerson {
   id: number;
   name: string;
@@ -281,4 +305,25 @@ export interface TrendingPersons {
   results?: TrendingPerson[];
   total_pages?: number;
   total_results?: number;
+}
+
+/** Payload behind #/shared/{id} — a snapshot of a watchlist shared between
+ * devices. SharedListItem mirrors SavedItem's display fields (no addedAt, no
+ * folders): a share is a moment-in-time copy, not a live list. */
+export interface SharedListItem {
+  id: number;
+  type: MediaType;
+  title: string;
+  poster: string | null;
+  backdrop: string | null;
+  year: string;
+  rating: number;
+}
+
+export interface SharedListPayload {
+  id: string;
+  name: string;
+  items: SharedListItem[];
+  /** ISO timestamp of when the list was shared. */
+  createdAt: string;
 }

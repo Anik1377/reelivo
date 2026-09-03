@@ -10,7 +10,9 @@ import {
   airLabel,
   dateOf,
   dek,
+  isoParts,
   poster,
+  relativeDue,
   score,
   still,
   titleOf,
@@ -21,7 +23,7 @@ import {
   genreNames,
   profile as profileUrl,
 } from "@/lib/format";
-import type { CollectionDetail, MediaItem, Paged, PersonDetail, ProviderEntry, ProvidersList, TrendingPersons } from "@/lib/tmdb-types";
+import type { CollectionDetail, MediaItem, Paged, PersonDetail, ProviderEntry, ProvidersList, TrendingPersons, TvDetail } from "@/lib/tmdb-types";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import {
   EmptyNote,
@@ -35,6 +37,8 @@ import {
   usePrefersReducedMotion,
 } from "../bits";
 import { Rail, StillCard, SaveButton, toSavedItem } from "../media";
+import { AskReelivoButton, AskReelivoDialog } from "../ask-reelivo";
+import { MoodStrip } from "../mood-strip";
 import { SERVICE_GROUPS } from "./services";
 
 /* --------------------------- hero (rotating) ------------------------------ */
@@ -46,10 +50,12 @@ function HeroSlide({
   item,
   rank,
   active,
+  kicker,
 }: {
   item: MediaItem;
   rank: number;
   active: boolean;
+  kicker: string;
 }) {
   const type = typeOf(item);
   const title = titleOf(item);
@@ -80,7 +86,7 @@ function HeroSlide({
         <div className="mx-auto max-w-[1400px] px-4 pb-9 md:px-8 md:pb-14 2xl:max-w-[1720px]">
           <div className="max-w-2xl">
             <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-bold uppercase tracking-[0.18em]">
-              <span className="text-primary">Nº{rank} trending this week</span>
+              <span className="text-primary">{kicker}</span>
               <span aria-hidden className="text-white/25">·</span>
               <span className="text-white/60">{type === "movie" ? "Film" : "Series"}</span>
             </p>
@@ -138,7 +144,16 @@ function HeroSlide({
   );
 }
 
-function HeroCarousel({ items }: { items: MediaItem[] }) {
+function HeroCarousel({
+  items,
+  kickerFor,
+  ariaLabel,
+}: {
+  items: MediaItem[];
+  /** Lets kids-mode reuse the same carousel without lying about "trending". */
+  kickerFor?: (rank: number) => string;
+  ariaLabel?: string;
+}) {
   const slides = items
     .filter((i) => i.backdrop_path && i.overview)
     .slice(0, HERO_SLIDES);
@@ -180,7 +195,7 @@ function HeroCarousel({ items }: { items: MediaItem[] }) {
     <section
       className="grain anim-rise relative h-[68vh] min-h-[440px] max-h-[780px] w-full touch-pan-y overflow-hidden md:h-[76vh] 2xl:min-h-[560px] 2xl:max-h-[900px]"
       aria-roledescription="carousel"
-      aria-label="Trending this week — use left and right arrows to change slide"
+      aria-label={ariaLabel ?? "Trending this week — use left and right arrows to change slide"}
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === "ArrowRight") {
@@ -204,11 +219,13 @@ function HeroCarousel({ items }: { items: MediaItem[] }) {
           item={item}
           rank={items.indexOf(item) + 1}
           active={i === active}
+          kicker={kickerFor ? kickerFor(items.indexOf(item) + 1) : `Nº${items.indexOf(item) + 1} trending this week`}
         />
       ))}
 
-      {/* slide indicators */}
-      <div className="absolute right-4 bottom-9 z-10 flex items-center gap-2 md:right-8 md:bottom-14">
+      {/* slide indicators — the dash is the visual; the button carries a
+       * 44px hit area so the 4px bar is never the touch target */}
+      <div className="absolute right-3 bottom-4 z-10 flex items-center gap-1 md:right-6 md:bottom-9">
         {slides.map((s, i) => (
           <button
             key={`${s.id}-ind`}
@@ -216,10 +233,14 @@ function HeroCarousel({ items }: { items: MediaItem[] }) {
             onClick={() => setIndex(i)}
             aria-label={`Show “${titleOf(s)}”`}
             aria-current={i === active}
-            className={`h-1 rounded-full transition-all duration-300 ${
-              i === active ? "w-7 bg-primary" : "w-3 bg-white/30 hover:bg-white/60"
-            }`}
-          />
+            className="group/ind grid h-11 w-9 place-items-center"
+          >
+            <span
+              className={`h-1 rounded-full transition-all duration-300 ${
+                i === active ? "w-7 bg-primary" : "w-3 bg-white/30 group-hover/ind:bg-white/60"
+              }`}
+            />
+          </button>
         ))}
       </div>
     </section>
@@ -490,7 +511,9 @@ function ServiceStrip() {
   const region = useReelivo((s) => s.region);
   // respect the region picked on the services/detail pages (SSR stays US-default)
   const activeRegion = mounted ? region : "US";
-  const providers = useTmdb<ProvidersList>("watch/providers/movie", {
+  /* path waits for mount: the strip only exists in the adult branch, so this
+   * also keeps a kids cold load from racing one background providers fetch */
+  const providers = useTmdb<ProvidersList>(mounted ? "watch/providers/movie" : null, {
     watch_region: activeRegion,
   });
   const byId = new Map((providers.data?.results ?? []).map((p) => [p.provider_id, p]));
@@ -525,8 +548,11 @@ function ServiceStrip() {
 /* --------------------------- premiering this week -------------------------- */
 
 function PremieringRail() {
+  /* mounted-gated: on a kids cold load this rail unmounts before mount, so the
+   * query must not have armed during the pre-rehydrate render */
+  const mounted = useMounted();
   const win = useMemo(() => weekWindow(), []);
-  const shows = useTmdb<Paged<MediaItem>>("discover/tv", {
+  const shows = useTmdb<Paged<MediaItem>>(mounted ? "discover/tv" : null, {
     "first_air_date.gte": win.gte,
     "first_air_date.lte": win.lte,
     sort_by: "popularity.desc",
@@ -565,11 +591,239 @@ function PremieringRail() {
   );
 }
 
+/* ---------------------------- new-episode radar ---------------------------- */
+
+const WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "Tue, 9 Sep" from a YYYY-MM-DD string — literal arrays + pure UTC math, so
+ * the SSR text and the client's first render agree byte-for-byte (Task-29). */
+function weekdayLabel(iso: string): string {
+  const p = isoParts(iso);
+  if (!p) return iso;
+  const wd = new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay();
+  return `${WEEKDAYS_SHORT[wd]}, ${p.d} ${MONTHS_SHORT[p.m - 1]}`;
+}
+
+/** ISO date `days` after `iso` — Date.UTC overflows the day field safely. */
+function isoPlusDays(iso: string, days: number): string {
+  const p = isoParts(iso);
+  if (!p) return "";
+  return new Date(Date.UTC(p.y, p.m - 1, p.d + days)).toISOString().slice(0, 10);
+}
+
+/** Episode radar — series on the ACTIVE profile's watchlist with an episode
+ * airing within the next 7 days (pure-UTC window, same rule as weekWindow).
+ * Renders NOTHING until it knows there is something to show (no empty state),
+ * and stays quiet when the API is unreachable. */
+function EpisodeRadarRail() {
+  const mounted = useMounted();
+  const watchlist = useReelivo((s) => s.watchlist);
+  const win = useMemo(() => {
+    const today = weekWindow().today; // pure UTC, SSR-safe
+    return { today, until: isoPlusDays(today, 7) };
+  }, []);
+  const series = useMemo(
+    () => (mounted ? watchlist.filter((w) => w.type === "tv").slice(0, 12) : []),
+    [mounted, watchlist]
+  );
+
+  /* keys match the detail-page queries, so a visited detail warms this rail */
+  const details = useQueries({
+    queries: series.map((s) => ({
+      queryKey: ["tmdb", `tv/${s.id}`, {}] as const,
+      queryFn: () => tmdbFetch<TvDetail>(`tv/${s.id}`),
+      staleTime: 30 * 60 * 1000,
+      retry: 1,
+    })),
+  });
+
+  const pending = details.some((q) => q.isPending);
+  const candidates = details
+    .flatMap((q, i) => {
+      const saved = series[i];
+      const next = q.data?.next_episode_to_air;
+      const air = next?.air_date ?? null;
+      if (!saved || !next || !air) return [];
+      if (air < win.today || air > win.until) return [];
+      return [{ saved, next, air }];
+    })
+    /* nearest air first — today's episodes lead the rail; ties keep the
+     * watchlist order (Array#sort is stable). ISO strings compare
+     * chronologically. */
+    .sort((a, b) => (a.air < b.air ? -1 : a.air > b.air ? 1 : 0));
+
+  if (!mounted || series.length === 0) return null;
+
+  if (candidates.length === 0 && pending) {
+    return (
+      <section aria-label="Airing this week">
+        <SectionHead
+          kicker="Episode radar"
+          title="Airing this week"
+          aside={<span className="text-xs text-ink-dim">From your list</span>}
+        />
+        <RailSkeleton />
+      </section>
+    );
+  }
+  if (candidates.length === 0) return null;
+
+  return (
+    <section aria-label="Airing this week">
+      <SectionHead
+        kicker="Episode radar"
+        title="Airing this week"
+        aside={
+          <a
+            href="#/watchlist"
+            className="text-[13px] text-ink-dim transition-colors hover:text-primary"
+          >
+            Your list
+          </a>
+        }
+      />
+      <Rail
+        label="airing this week"
+        ariaLabel="Episodes from your list airing this week"
+      >
+        {candidates.map(({ saved, next, air }) => {
+          /* absolute label on first render (SSR-safe), relative after mount */
+          const rel = mounted ? relativeDue(air) : "";
+          return (
+            <article
+              key={`${saved.type}-${saved.id}-s${next.season_number}e${next.episode_number}`}
+              className="group w-[240px] shrink-0 snap-start md:w-[300px]"
+            >
+              <div
+                role="link"
+                tabIndex={0}
+                aria-label={`${saved.title} — open details`}
+                onClick={() => navigate(hrefFor({ name: "detail", type: "tv", id: saved.id }))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") navigate(hrefFor({ name: "detail", type: "tv", id: saved.id }));
+                }}
+                className="relative aspect-video w-full cursor-pointer overflow-hidden rounded-xl bg-surface-2 ring-1 ring-white/[0.06] transition-all duration-200 group-hover:ring-white/25 group-focus-within:ring-primary/60 active:scale-[0.985]"
+              >
+                <Img
+                  src={still(next.still_path, "w780") ?? still(saved.backdrop, "w780") ?? poster(saved.poster, "w342")}
+                  alt=""
+                  fallbackTitle={saved.title}
+                  sizesHint="320px"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+                  <button
+                    type="button"
+                    aria-label={`Play ${saved.title} season ${next.season_number} episode ${next.episode_number} free`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(hrefFor({ name: "play", type: "tv", id: saved.id, season: next.season_number, episode: next.episode_number }));
+                    }}
+                    className="grid size-11 place-items-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.55)] transition-transform duration-150 hover:scale-105 active:scale-95"
+                  >
+                    <Play className="ml-0.5 size-5 fill-current" aria-hidden />
+                  </button>
+                </div>
+                <span className="tabular chip-glass absolute bottom-2.5 left-2.5 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide text-white/90">
+                  S{next.season_number} · E{next.episode_number}
+                </span>
+              </div>
+              <div className="mt-2.5">
+                <p className="truncate text-[13.5px] font-semibold leading-tight text-foreground">
+                  {saved.title}
+                </p>
+                {next.name ? (
+                  <p className="mt-0.5 truncate text-xs text-ink-dim">{next.name}</p>
+                ) : null}
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
+                  {rel || weekdayLabel(air)}
+                </p>
+              </div>
+            </article>
+          );
+        })}
+      </Rail>
+    </section>
+  );
+}
+
+/* ------------------------------- kids rails -------------------------------- */
+
+/* Kids-mode line-up — the SAME rail/card language, family-safe genre shelves.
+ * tv genre 12 doesn't exist (movies only) — the tv side uses 10759
+ * (Action & Adventure), the tv-native equivalent, for that rail. */
+const KIDS_RAILS = [
+  { kicker: "Animation", title: "Animated favourites", genres: "16", tvGenres: "16" },
+  { kicker: "Family", title: "Family night", genres: "10751", tvGenres: "10751" },
+  { kicker: "Comedy", title: "Laugh-out-loud", genres: "35", tvGenres: "35" },
+  { kicker: "Adventure", title: "Big adventures", genres: "12", tvGenres: "10759" },
+] as const;
+
+function KidsRail({
+  kicker,
+  title,
+  genres,
+  tvGenres,
+}: {
+  kicker: string;
+  title: string;
+  genres: string;
+  tvGenres: string;
+}) {
+  const movies = useTmdb<Paged<MediaItem>>("discover/movie", {
+    with_genres: genres,
+    "vote_count.gte": 200,
+    sort_by: "popularity.desc",
+  });
+  const tv = useTmdb<Paged<MediaItem>>("discover/tv", {
+    with_genres: tvGenres,
+    "vote_count.gte": 200,
+    sort_by: "popularity.desc",
+  });
+
+  const items = uniqueById([
+    ...(movies.data?.results ?? []).map((i) => ({ ...i, media_type: "movie" as const })),
+    ...(tv.data?.results ?? []).map((i) => ({ ...i, media_type: "tv" as const })),
+  ])
+    .filter((i) => i.backdrop_path || i.poster_path)
+    .slice(0, 14);
+
+  const loading = movies.isLoading || tv.isLoading;
+
+  return (
+    <section aria-label={title}>
+      <SectionHead
+        kicker={kicker}
+        title={title}
+        aside={<span className="text-xs text-ink-dim">Films &amp; series</span>}
+      />
+      {loading ? (
+        <RailSkeleton />
+      ) : items.length === 0 ? (
+        <ErrorNote onRetry={() => { movies.refetch(); tv.refetch(); }} />
+      ) : (
+        <Rail label={title.toLowerCase()} ariaLabel={title}>
+          {items.map((i) => (
+            <StillCard
+              key={`${i.media_type}-${i.id}`}
+              item={i}
+              type={i.media_type as "movie" | "tv"}
+              preview
+            />
+          ))}
+        </Rail>
+      )}
+    </section>
+  );
+}
+
 /* --------------------------- trending people ------------------------------- */
 
 /** Circular-avatar rail of the week's trending people — deep-links to person pages. */
 function TrendingPeopleRail() {
-  const q = useTmdb<TrendingPersons>("trending/person/week");
+  const mounted = useMounted();
+  const q = useTmdb<TrendingPersons>(mounted ? "trending/person/week" : null);
   const people = (q.data?.results ?? []).filter((p) => p.profile_path).slice(0, 12);
   if (q.isPending) return null;
   if (people.length === 0) return null;
@@ -661,10 +915,12 @@ function TrendingPeopleRail() {
 function CollectionsRail() {
   /* Each franchise card hydrates from its real TMDB collection — name, art and
    * film count are live data, the curation is only the id list. */
+  const mounted = useMounted();
   const cols = useQueries({
     queries: FRANCHISES.map((f) => ({
       queryKey: ["tmdb", `collection/${f.id}`, {}] as const,
       queryFn: () => tmdbFetch<CollectionDetail>(`collection/${f.id}`),
+      enabled: mounted,
       staleTime: 60 * 60 * 1000,
       retry: 1,
     })),
@@ -728,10 +984,12 @@ function CollectionsRail() {
 /* --------------------------- director spotlight ---------------------------- */
 
 function DirectorsRail() {
+  const mounted = useMounted();
   const people = useQueries({
     queries: DIRECTORS.map((d) => ({
       queryKey: ["tmdb", `person/${d.id}`, {}] as const,
       queryFn: () => tmdbFetch<PersonDetail>(`person/${d.id}`),
+      enabled: mounted,
       staleTime: 24 * 60 * 60 * 1000,
       retry: 1,
     })),
@@ -793,11 +1051,40 @@ function DirectorsRail() {
 
 /* ---------------------------------- home ---------------------------------- */
 
+/** Kids hero kicker — the same carousel without pretending it's "trending". */
+const kidsKicker = (rank: number) => `Nº${rank} pick for kids`;
+
 export function HomeView() {
-  const trending = useTmdb<Paged<MediaItem>>("trending/all/week");
-  const nowPlaying = useTmdb<Paged<MediaItem>>("movie/now_playing");
-  const onAir = useTmdb<Paged<MediaItem>>("tv/on_the_air");
-  const praise = useTmdb<Paged<MediaItem>>("discover/movie", {
+  /* Profile read follows the ContinueStrip idiom: SSR + first client render see
+   * the pre-rehydrate defaults (no profiles → not kids), rehydrate lands
+   * pre-paint, so hydration stays byte-identical. Every home query additionally
+   * waits for `mounted` — otherwise the pre-rehydrate render arms the ADULT
+   * fetches before the kids flag exists, and a kid's cold load fires a round of
+   * trending/cinemas/on-air requests for rails that unmount a frame later. */
+  const mounted = useMounted();
+  const profile = useReelivo((s) => s.profiles.find((p) => p.id === s.activeProfileId));
+  const kids = mounted && !!profile?.kids;
+
+  const [askOpen, setAskOpen] = useState(false);
+
+  /* hero candidates — trending for everyone, family-safe discover for kids.
+   * Disabled queries (null path) in the inactive branch: zero fetches. */
+  const trending = useTmdb<Paged<MediaItem>>(mounted && !kids ? "trending/all/week" : null);
+  const kidsHeroMovies = useTmdb<Paged<MediaItem>>(mounted && kids ? "discover/movie" : null, {
+    with_genres: "16,10751",
+    "vote_count.gte": 200,
+    sort_by: "popularity.desc",
+  });
+  const kidsHeroTv = useTmdb<Paged<MediaItem>>(mounted && kids ? "discover/tv" : null, {
+    with_genres: "16,10762",
+    "vote_count.gte": 200,
+    sort_by: "popularity.desc",
+  });
+
+  /* adult rails — parked in kids mode so a child's home does zero adult fetches */
+  const nowPlaying = useTmdb<Paged<MediaItem>>(mounted && !kids ? "movie/now_playing" : null);
+  const onAir = useTmdb<Paged<MediaItem>>(mounted && !kids ? "tv/on_the_air" : null);
+  const praise = useTmdb<Paged<MediaItem>>(mounted && !kids ? "discover/movie" : null, {
     sort_by: "vote_average.desc",
     "vote_count.gte": 2000,
     "vote_average.gte": 7.6,
@@ -809,129 +1096,187 @@ export function HomeView() {
       (i) => (i.media_type === "movie" || i.media_type === "tv") && !i.adult
     )
   );
+  /* discover results carry no media_type — stamp it before merging, or movie/tv
+   * id collisions would produce duplicate hero keys (uniqueById guard too) */
+  const kidsItems = uniqueById([
+    ...(kidsHeroMovies.data?.results ?? []).map((i) => ({ ...i, media_type: "movie" as const })),
+    ...(kidsHeroTv.data?.results ?? []).map((i) => ({ ...i, media_type: "tv" as const })),
+  ]);
+  const heroItems = kids ? kidsItems : items;
   const chart = items.slice(0, 10);
+
+  const heroLoading = kids
+    ? kidsHeroMovies.isLoading || kidsHeroTv.isLoading
+    : trending.isLoading;
+  const heroError = kids
+    ? kidsHeroMovies.isError && kidsHeroTv.isError
+    : trending.isError;
+  const heroRetry = () => {
+    if (kids) {
+      kidsHeroMovies.refetch();
+      kidsHeroTv.refetch();
+    } else {
+      trending.refetch();
+    }
+  };
 
   return (
     <div className="pb-16">
-      {trending.isLoading && (
+      {heroLoading && (
         <div className="mx-auto px-4 pt-28 md:px-8" aria-hidden>
           <StillSkeleton className="h-[62vh] min-h-[420px] w-full" />
         </div>
       )}
-      {trending.isError && (
+      {heroError && !heroLoading && (
         <div className="mx-auto max-w-2xl px-4 pt-40">
-          <ErrorNote onRetry={() => trending.refetch()} />
+          <ErrorNote onRetry={heroRetry} />
         </div>
       )}
-      <HeroCarousel items={items} />
+      <HeroCarousel
+        items={heroItems}
+        kickerFor={kids ? kidsKicker : undefined}
+        ariaLabel={
+          kids
+            ? "Family picks — use left and right arrows to change slide"
+            : undefined
+        }
+      />
 
       <div className="mx-auto max-w-[1400px] space-y-10 px-4 md:space-y-14 md:px-8 2xl:max-w-[1720px]">
         <div className="pt-10 md:pt-12">
           <ContinueStrip />
         </div>
 
-        {chart.length > 0 && <TopTen items={chart} />}
+        {kids ? (
+          /* Kids shaping: family-safe hero above, four genre shelves, personal
+           * rails kept (Continue Watching above / Because you saved below).
+           * Hidden entirely: Ask Reelivo, mood strip, Top 10, Premiering rail,
+           * the adult editorial rails (cinemas, services, on-air, people,
+           * directors, praise list), Recently viewed and the episode radar —
+           * the kids line-up is exactly the enumerated set. */
+          KIDS_RAILS.map((r) => <KidsRail key={r.title} {...r} />)
+        ) : (
+          <>
+            <section aria-label="Ask Reelivo">
+              <SectionHead
+                kicker="Ask Reelivo"
+                title="Can't name it? Describe it"
+                aside={<AskReelivoButton onClick={() => setAskOpen(true)} />}
+              />
+            </section>
 
-        <CollectionsRail />
+            <MoodStrip />
 
-        <section aria-label="First runs">
-          <SectionHead
-            kicker="First runs"
-            title="In cinemas now"
-            aside={
-              <a
-                href="#/films"
-                className="text-[13px] text-ink-dim transition-colors hover:text-primary"
-              >
-                All films
-              </a>
-            }
-          />
-          {nowPlaying.isLoading ? (
-            <RailSkeleton />
-          ) : nowPlaying.isError ? (
-            <ErrorNote onRetry={() => nowPlaying.refetch()} />
-          ) : (
-            <Rail label="in cinemas" ariaLabel="Films in cinemas now">
-              {uniqueById(nowPlaying.data?.results ?? [])
-                .filter((i) => i.backdrop_path || i.poster_path)
-                .slice(0, 14)
-                .map((i) => (
-                  <StillCard key={i.id} item={i} type="movie" preview sub={`${dateOf(i)} · Film`} />
-                ))}
-            </Rail>
-          )}
-        </section>
+            <EpisodeRadarRail />
 
-        <ServiceStrip />
+            {chart.length > 0 && <TopTen items={chart} />}
 
-        <section aria-label="New episodes">
-          <SectionHead
-            kicker="On air"
-            title="Series with new episodes"
-            aside={
-              <a
-                href="#/series"
-                className="text-[13px] text-ink-dim transition-colors hover:text-primary"
-              >
-                All series
-              </a>
-            }
-          />
-          {onAir.isLoading ? (
-            <RailSkeleton />
-          ) : onAir.isError ? (
-            <ErrorNote onRetry={() => onAir.refetch()} />
-          ) : (
-            <Rail label="new episodes" ariaLabel="Series with new episodes">
-              {uniqueById(onAir.data?.results ?? [])
-                .filter((i) => i.backdrop_path || i.poster_path)
-                .slice(0, 14)
-                .map((i) => (
-                  <StillCard key={i.id} item={i} type="tv" preview sub={`${dateOf(i)} · Series`} />
-                ))}
-            </Rail>
-          )}
-        </section>
+            <CollectionsRail />
 
-        <PremieringRail />
+            <section aria-label="First runs">
+              <SectionHead
+                kicker="First runs"
+                title="In cinemas now"
+                aside={
+                  <a
+                    href="#/films"
+                    className="text-[13px] text-ink-dim transition-colors hover:text-primary"
+                  >
+                    All films
+                  </a>
+                }
+              />
+              {nowPlaying.isLoading ? (
+                <RailSkeleton />
+              ) : nowPlaying.isError ? (
+                <ErrorNote onRetry={() => nowPlaying.refetch()} />
+              ) : (
+                <Rail label="in cinemas" ariaLabel="Films in cinemas now">
+                  {uniqueById(nowPlaying.data?.results ?? [])
+                    .filter((i) => i.backdrop_path || i.poster_path)
+                    .slice(0, 14)
+                    .map((i) => (
+                      <StillCard key={i.id} item={i} type="movie" preview sub={`${dateOf(i)} · Film`} />
+                    ))}
+                </Rail>
+              )}
+            </section>
 
-        <TrendingPeopleRail />
+            <ServiceStrip />
 
-        <DirectorsRail />
+            <section aria-label="New episodes">
+              <SectionHead
+                kicker="On air"
+                title="Series with new episodes"
+                aside={
+                  <a
+                    href="#/series"
+                    className="text-[13px] text-ink-dim transition-colors hover:text-primary"
+                  >
+                    All series
+                  </a>
+                }
+              />
+              {onAir.isLoading ? (
+                <RailSkeleton />
+              ) : onAir.isError ? (
+                <ErrorNote onRetry={() => onAir.refetch()} />
+              ) : (
+                <Rail label="new episodes" ariaLabel="Series with new episodes">
+                  {uniqueById(onAir.data?.results ?? [])
+                    .filter((i) => i.backdrop_path || i.poster_path)
+                    .slice(0, 14)
+                    .map((i) => (
+                      <StillCard key={i.id} item={i} type="tv" preview sub={`${dateOf(i)} · Series`} />
+                    ))}
+                </Rail>
+              )}
+            </section>
 
-        <section aria-label="The praise list">
-          <SectionHead
-            kicker="The praise list"
-            title="Best of the decade so far"
-            aside={<span className="text-xs text-ink-dim">By TMDB rating, 2,000+ votes</span>}
-          />
-          {praise.isLoading ? (
-            <RailSkeleton />
-          ) : praise.isError ? (
-            <ErrorNote onRetry={() => praise.refetch()} />
-          ) : (
-            <Rail label="acclaimed" ariaLabel="Best of the decade so far">
-              {uniqueById(praise.data?.results ?? [])
-                .filter((i) => i.backdrop_path || i.poster_path)
-                .slice(0, 14)
-                .map((i) => (
-                  <StillCard key={i.id} item={i} type="movie" preview />
-                ))}
-            </Rail>
-          )}
-        </section>
+            <PremieringRail />
 
-        <JournalRail />
+            <TrendingPeopleRail />
+
+            <DirectorsRail />
+
+            <section aria-label="The praise list">
+              <SectionHead
+                kicker="The praise list"
+                title="Best of the decade so far"
+                aside={<span className="text-xs text-ink-dim">By TMDB rating, 2,000+ votes</span>}
+              />
+              {praise.isLoading ? (
+                <RailSkeleton />
+              ) : praise.isError ? (
+                <ErrorNote onRetry={() => praise.refetch()} />
+              ) : (
+                <Rail label="acclaimed" ariaLabel="Best of the decade so far">
+                  {uniqueById(praise.data?.results ?? [])
+                    .filter((i) => i.backdrop_path || i.poster_path)
+                    .slice(0, 14)
+                    .map((i) => (
+                      <StillCard key={i.id} item={i} type="movie" preview />
+                    ))}
+                </Rail>
+              )}
+            </section>
+          </>
+        )}
+
+        {!kids && <JournalRail />}
 
         <BecauseYouSaved />
 
-        {!trending.isLoading &&
-          chart.length === 0 &&
-          nowPlaying.isError &&
-          onAir.isError &&
-          praise.isError && <EmptyNote title="Nothing on the marquee" />}
+        {!heroLoading &&
+          heroItems.length === 0 &&
+          (kids
+            ? kidsHeroMovies.isError && kidsHeroTv.isError
+            : nowPlaying.isError &&
+              onAir.isError &&
+              praise.isError) && <EmptyNote title="Nothing on the marquee" />}
       </div>
+
+      {!kids && <AskReelivoDialog open={askOpen} onOpenChange={setAskOpen} />}
     </div>
   );
 }

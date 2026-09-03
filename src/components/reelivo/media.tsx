@@ -250,7 +250,18 @@ function ScoreLite({ value, className = "" }: { value?: number; className?: stri
   );
 }
 
-/** Horizontal rail with scroll-aware edge fades + arrows on desktop. */
+/* Focusable targets inside a rail card, in DOM order — the art link leads,
+ * so stepping a rail lands on the card's primary action, never its inner
+ * Play/Save buttons. */
+const RAIL_FOCUS_SEL =
+  'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** Horizontal rail with scroll-aware edge fades + arrows on desktop.
+ * Keyboard rail nav (Task 32 wave 3-a): ArrowLeft/Right step card by card and
+ * Home/End jump to the ends — both wrap; Up/Down/Tab are left untouched so
+ * focus can leave the rail naturally. Cards are the rail's DIRECT children
+ * (article / a / Radix trigger — HoverCard renders no wrapper) and focus
+ * lands on each card's FIRST focusable. Grid-based pages don't use Rail. */
 export function Rail({
   label,
   children,
@@ -287,13 +298,39 @@ export function Rail({
     ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.8, behavior: "smooth" });
   };
 
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft" && e.key !== "Home" && e.key !== "End")
+      return;
+    const el = ref.current;
+    if (!el) return;
+    const cards = Array.from(el.children).filter(
+      (c): c is HTMLElement =>
+        c instanceof HTMLElement && c.querySelector(RAIL_FOCUS_SEL) !== null
+    );
+    if (cards.length === 0) return;
+    const active = document.activeElement;
+    const idx =
+      active instanceof HTMLElement ? cards.findIndex((c) => c.contains(active)) : -1;
+    let card: HTMLElement | undefined;
+    if (e.key === "Home") card = cards[0];
+    else if (e.key === "End") card = cards[cards.length - 1];
+    else if (e.key === "ArrowRight") card = cards[(idx + 1) % cards.length];
+    else if (idx === -1) card = cards[cards.length - 1];
+    else card = cards[(idx - 1 + cards.length) % cards.length];
+    const target = card?.querySelector<HTMLElement>(RAIL_FOCUS_SEL) ?? card;
+    if (!target) return;
+    e.preventDefault();
+    target.focus(); // native focus scrolling + snap-start aligns the card
+  };
+
   return (
     <div className="group/rail relative">
       <div
         ref={ref}
         role="region"
-        aria-label={ariaLabel}
-        className="no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto scroll-smooth px-4 pb-1 md:mx-0 md:px-0"
+        aria-label={`${ariaLabel} — use arrow keys to move between cards`}
+        onKeyDown={onKeyDown}
+        className="no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto scroll-smooth px-4 pb-1 motion-reduce:scroll-auto md:mx-0 md:px-0"
       >
         {children}
       </div>

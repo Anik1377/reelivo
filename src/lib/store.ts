@@ -56,6 +56,8 @@ export interface ProfileData {
   searchHistory: string[];
   /** Everything this profile ever pressed play on, newest first. */
   history: HistoryEntry[];
+  /** Titles this profile wants to be nudged about, newest first. */
+  reminders: ReminderItem[];
 }
 
 /** One row of viewing history — a play session on a title (or one episode). */
@@ -68,6 +70,33 @@ export interface HistoryEntry extends SavedItem {
   watchedAt: number;
 }
 
+/** A saved title with a date to come back for — a film not out yet or a
+ * series' next air date. `dueDate` is the release/air date as an ISO
+ * calendar date (YYYY-MM-DD), the same format TMDB ships. */
+export interface ReminderItem extends SavedItem {
+  dueDate: string;
+}
+
+/** Device-level continue-anywhere card: the last stream this BROWSER played,
+ * so any view can offer "keep watching" without touching per-profile data.
+ * Ephemerality note: deliberately NOT persisted (excluded from partialize) —
+ * losing the mini card on a reload is fine, and keeping it out of localStorage
+ * keeps it off the hydration surface entirely (the store's first render must
+ * stay byte-identical to the server's; see the skipHydration note below).
+ * It also survives profile switches on purpose — it is not per-profile state. */
+export interface MiniStream {
+  type: MediaType;
+  id: number;
+  season?: number;
+  episode?: number;
+  title: string;
+  /** 16:9 still URL (already sized) or null when the title has no art. */
+  still: string | null;
+  /** 0..1 — how far the stream got when it was last seen. */
+  pct: number;
+  updatedAt: number;
+}
+
 const EMPTY_DATA: ProfileData = {
   watchlist: [],
   recents: [],
@@ -75,6 +104,7 @@ const EMPTY_DATA: ProfileData = {
   lastEpisode: {},
   searchHistory: [],
   history: [],
+  reminders: [],
 };
 
 /** Gate mode: "who" = pick a profile · "manage" = pick + edit · "off" = in-app. */
@@ -130,10 +160,13 @@ interface ReelivoState {
   lastEpisode: Record<string, { season: number; episode: number }>;
   searchHistory: string[];
   history: HistoryEntry[];
+  reminders: ReminderItem[];
 
   /* device-level prefs (shared across profiles) */
   region: string;
   serviceFocus: number | null;
+  /** Ephemeral, device-level (NOT per-profile, NOT persisted) — see MiniStream. */
+  miniStream: MiniStream | null;
 
   /* profile actions */
   addProfile: (p: { name: string; avatar: number; kids: boolean }) => string;
@@ -166,8 +199,14 @@ interface ReelivoState {
   logHistory: (item: SavedItem & { season?: number; episode?: number }, pct?: number) => void;
   removeHistory: (key: string) => void;
   clearHistory: () => void;
+  /** Remind me about a title on its release/air date. Idempotent by id+type
+   * (a re-add refreshes nothing); toasts are the caller's job. */
+  addReminder: (item: ReminderItem) => void;
+  removeReminder: (id: number, type: MediaType) => void;
   setRegion: (r: string) => void;
   setServiceFocus: (id: number | null) => void;
+  setMiniStream: (s: MiniStream) => void;
+  clearMiniStream: () => void;
 }
 
 export const progressKey = (id: number, type: MediaType, season?: number, episode?: number) =>
@@ -210,9 +249,11 @@ export const useReelivo = create<ReelivoState>()(
       lastEpisode: {},
       searchHistory: [],
       history: [],
+      reminders: [],
 
       region: "US",
       serviceFocus: null,
+      miniStream: null,
 
       /* ------------------------------ profiles ------------------------------ */
 
@@ -267,7 +308,10 @@ export const useReelivo = create<ReelivoState>()(
 
       switchProfile: (id) => {
         const s = get();
+        /* EMPTY_DATA first: profiles created before a field existed (reminders
+         * joined in v2-era) get the fresh default instead of undefined. */
         const slice: ProfileData = { ...EMPTY_DATA, ...s.data[id] };
+        const reminders = cleanReminders(slice.reminders);
         set({
           activeProfileId: id,
           gate: "off",
@@ -277,6 +321,9 @@ export const useReelivo = create<ReelivoState>()(
           lastEpisode: slice.lastEpisode,
           searchHistory: slice.searchHistory,
           history: slice.history,
+          reminders,
+          /* write the sanitized copy back so the persisted slice heals too */
+          data: { ...s.data, [id]: { ...slice, reminders } },
         });
       },
 
@@ -456,9 +503,40 @@ export const useReelivo = create<ReelivoState>()(
 
       clearHistory: () => commit(set, get, { history: [] }),
 
+      addReminder: (item) => {
+        const list = cleanReminders(get().reminders);
+        if (list.some((r) => r.id === item.id && r.type === item.type)) return;
+        const row: ReminderItem = {
+          ...item,
+          poster: item.poster ?? null,
+          backdrop: item.backdrop ?? null,
+          year: item.year ?? "—",
+          rating: item.rating ?? 0,
+          addedAt: item.addedAt || Date.now(),
+        };
+        commit(set, get, { reminders: [row, ...list] });
+      },
+
+      removeReminder: (id, type) =>
+        commit(set, get, {
+          reminders: get().reminders.filter((r) => !(r.id === id && r.type === type)),
+        }),
+
       setRegion: (region) => set({ region }),
 
       setServiceFocus: (serviceFocus) => set({ serviceFocus }),
+
+      setMiniStream: (s) =>
+        set({
+          miniStream: {
+            ...s,
+            still: s.still ?? null,
+            pct: Math.min(1, Math.max(0, s.pct)),
+            updatedAt: s.updatedAt || Date.now(),
+          },
+        }),
+
+      clearMiniStream: () => set({ miniStream: null }),
     }),
     {
       name: "reelivo-v1", // same key as before — existing data rides along
@@ -484,8 +562,12 @@ export const useReelivo = create<ReelivoState>()(
         lastEpisode: s.lastEpisode,
         searchHistory: s.searchHistory,
         history: s.history,
+        reminders: s.reminders,
         region: s.region,
         serviceFocus: s.serviceFocus,
+        /* `gate`, `unlocked` and `miniStream` are ephemeral and must never
+         * survive a reload (miniStream is device-level by design, see its
+         * interface note). */
       }),
     }
   )
@@ -520,6 +602,7 @@ function adoptLegacyData() {
         lastEpisode: s.lastEpisode,
         searchHistory: s.searchHistory,
         history: [],
+        reminders: [],
       },
     },
   });
@@ -533,6 +616,41 @@ if (typeof window !== "undefined") {
   }
 }
 
+/* -------------------------------- reminders -------------------------------- */
+
+/** Shape guard for reminder rows, in the same defensive style as
+ * importWatchlist's validation: payloads saved before reminders existed (or
+ * hand-edited localStorage) must degrade to an empty list, never leak junk
+ * into the calendar UI. Requires the display fields the views actually read. */
+function isReminderRow(r: unknown): r is ReminderItem {
+  const x = r as ReminderItem | null | undefined;
+  return (
+    !!x &&
+    typeof x.id === "number" &&
+    (x.type === "movie" || x.type === "tv") &&
+    typeof x.title === "string" &&
+    x.title.length > 0 &&
+    typeof x.dueDate === "string" &&
+    /^\d{4}-\d{2}-\d{2}/.test(x.dueDate)
+  );
+}
+
+function cleanReminders(items: ReminderItem[] | undefined): ReminderItem[] {
+  return Array.isArray(items) ? items.filter(isReminderRow) : [];
+}
+
+/** True when the ACTIVE profile already has a reminder for this title — the
+ * badge/toggle state for detail pages. Plain function (reads current state,
+ * zero-throw); it is deliberately NOT reactive. Components that must re-render
+ * on change subscribe to the mirror instead:
+ *   const on = useReelivo((s) => s.reminders.some((r) => r.id === id && r.type === type));
+ */
+export function isReminder(id: number, type: MediaType): boolean {
+  return useReelivo
+    .getState()
+    .reminders.some((r) => r.id === id && r.type === type);
+}
+
 /** Honest Continue queue — started but not finished, newest first. */
 export function continueEntries(progress: Record<string, ProgressEntry>): ProgressEntry[] {
   return Object.values(progress)
@@ -540,3 +658,4 @@ export function continueEntries(progress: Record<string, ProgressEntry>): Progre
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, 10);
 }
+

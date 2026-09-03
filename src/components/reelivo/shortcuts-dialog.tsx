@@ -8,6 +8,8 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ["↑", "↓"], label: "Move through search results" },
   { keys: ["↵"], label: "Open the selected title" },
   { keys: ["←", "→"], label: "Change hero slide (when the billboard is focused)" },
+  { keys: ["←", "→"], label: "Move between cards in a rail" },
+  { keys: ["Home", "End"], label: "First / last card in a rail" },
   { keys: ["esc"], label: "Close dialogs · back from the player" },
   { keys: ["?"], label: "Show this panel" },
 ];

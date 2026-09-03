@@ -16,11 +16,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const LINKS: { key: Route["name"]; label: string; href: string }[] = [
+/* Data-driven nav so kids-mode shaping (Task 32 wave 3-a) is one .filter:
+ * when the ACTIVE profile has kids:true, adult-discovery surfaces are hidden
+ * at the data level — styling, order and active states stay untouched.
+ * Directors never lived in this bar (reachable from home rails), so Services
+ * is the only adult-only item here; Calendar stays visible for kids (family
+ * premieres are relevant). */
+const LINKS: {
+  key: Route["name"];
+  label: string;
+  href: string;
+  adultOnly?: boolean;
+}[] = [
   { key: "home", label: "Home", href: "#/" },
   { key: "films", label: "Films", href: "#/films" },
   { key: "series", label: "Series", href: "#/series" },
-  { key: "services", label: "Services", href: "#/services" },
+  { key: "calendar", label: "Calendar", href: "#/calendar" },
+  { key: "services", label: "Services", href: "#/services", adultOnly: true },
 ];
 
 export function TopBar({
@@ -37,6 +49,7 @@ export function TopBar({
   const switchProfile = useReelivo((s) => s.switchProfile);
   const openGate = useReelivo((s) => s.openGate);
   const activeProfile = profiles.find((p) => p.id === activeProfileId);
+  const links = LINKS.filter((l) => !(activeProfile?.kids && l.adultOnly));
   const [scrolled, setScrolled] = useState(false);
   // immersive chrome — fade the bar away while reading down, bring it back
   // the instant intent reverses; keyboard focus always pins it visible.
@@ -81,7 +94,7 @@ export function TopBar({
             reelivo<span className="text-primary">.</span>
           </a>
           <nav aria-label="Primary" className="hidden items-center gap-6 md:flex">
-            {LINKS.map((l) => (
+            {links.map((l) => (
               <a
                 key={l.key}
                 href={l.href}

@@ -7,13 +7,19 @@ import type { MediaType } from "./tmdb-types";
 
 const HOME_ROUTE: Route = { name: "home" };
 
+/* Route gains `calendar` / `shared` / `services.focus` for the Task-32 waves.
+ * app.tsx renders views with boolean flags (route.name === "…" && …), NOT an
+ * exhaustive switch — so new variants typecheck immediately and simply render
+ * nothing until the router agent (wave 3-a) wires their views. */
 export type Route =
   | { name: "home" }
   | { name: "films"; genre?: string; mode?: string }
   | { name: "series"; genre?: string; mode?: string }
-  | { name: "services" }
+  | { name: "services"; focus?: number }
   | { name: "watchlist" }
   | { name: "history" }
+  | { name: "calendar" }
+  | { name: "shared"; id: string }
   | { name: "detail"; type: MediaType; id: number }
   | { name: "person"; id: number; rank?: number }
   | { name: "director"; id: number }
@@ -35,11 +41,23 @@ export function parseHash(hash: string): Route {
         ? { name: "series", genre: b.toLowerCase(), mode: c ? c.toLowerCase() : undefined }
         : { name: "series" };
     case "services":
-      return { name: "services" };
+      // #/services and #/services/{id} — the id deep-links one provider's
+      // catalogue; non-numeric junk degrades to the plain page (num() → 0 →
+      // undefined), never to a broken view.
+      return { name: "services", focus: num(b) || undefined };
     case "watchlist":
       return { name: "watchlist" };
     case "history":
       return { name: "history" };
+    case "calendar":
+      return { name: "calendar" };
+    case "shared":
+      // #/shared/{id} — an opaque token minted by the share pipeline
+      // (canonical ids are 12 chars; 6–32 tolerates future lengths).
+      // Task-31 junk-link philosophy: anything that isn't a well-formed id
+      // falls back to home — parseHash must stay zero-throw and never route
+      // a truncated share link into a broken view.
+      return b && /^[a-z0-9]{6,32}$/.test(b) ? { name: "shared", id: b } : { name: "home" };
     case "person":
       // optional trailing segment carries a trending rank: #/person/123/4 →
       // shows a "№ 4 trending this week" badge on the profile.
@@ -68,12 +86,14 @@ function num(s?: string): number {
 
 export function hrefFor(
   route:
-    | { name: "home" | "services" | "watchlist" | "history" }
+    | { name: "home" | "watchlist" | "history" | "calendar" }
+    | { name: "services"; focus?: number }
     | { name: "films" | "series"; genre?: string; mode?: string }
     | { name: "detail"; type: MediaType; id: number }
     | { name: "person"; id: number; rank?: number }
     | { name: "director"; id: number }
     | { name: "collection"; id: number }
+    | { name: "shared"; id: string }
     | { name: "play"; type: MediaType; id: number; season?: number; episode?: number }
 ): string {
   switch (route.name) {
@@ -90,6 +110,12 @@ export function hrefFor(
       if (hasMode) return `#/${route.name}/${route.mode}`;
       return `#/${route.name}`;
     }
+    case "services":
+      return route.focus ? `#/services/${route.focus}` : "#/services";
+    case "calendar":
+      return "#/calendar";
+    case "shared":
+      return `#/shared/${route.id}`;
     case "detail":
       return `#/${route.type}/${route.id}`;
     case "person":

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { tmdbFetch } from "@/lib/hooks";
+import { tmdbFetch, useHashRoute } from "@/lib/hooks";
 import { logo, uniqueById } from "@/lib/format";
 import { useReelivo } from "@/lib/store";
 import type { MediaItem, Paged, ProviderEntry, ProvidersList } from "@/lib/tmdb-types";
@@ -102,6 +102,36 @@ export function ServicesView() {
   const focus = useReelivo((s) => s.serviceFocus);
   const setFocus = useReelivo((s) => s.setServiceFocus);
 
+  /* Deep links: #/services/{id} names one provider in the hash (Task-32 wave
+   * 1-b router). The view reads the route itself — app.tsx mounts it bare —
+   * and feeds it into the SAME focus/catalog store the chips use: the deep
+   * linked chip gets a cyan ping (~2s) then a persistent subtle ring, walks
+   * into view, and the catalogue below opens on that provider. Manual chip
+   * clicks keep working exactly as before — the ring simply follows the hash
+   * (it only shows on the deep linked chip while it is still the selected
+   * provider, so picking another chip clears it with zero extra state). */
+  const route = useHashRoute();
+  const routeFocus = route.name === "services" && route.focus ? route.focus : null;
+
+  useEffect(() => {
+    if (routeFocus == null) return;
+    setFocus(routeFocus); // opens that service's catalogue (existing store concept)
+    /* one short beat: the router's own scroll-to-top (app-level effect) lands
+     * first on in-app navigations, then the chip walks into view. Motion is
+     * read here — this code only ever runs post-mount, in the browser. */
+    const scrollT = setTimeout(() => {
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      document
+        .querySelector(`[data-service-id="${routeFocus}"]`)
+        ?.scrollIntoView({
+          block: "center",
+          inline: "center",
+          behavior: reduced ? "auto" : "smooth",
+        });
+    }, 120);
+    return () => clearTimeout(scrollT);
+  }, [routeFocus, setFocus]);
+
   const provider = focus ?? SERVICES[0].id;
   const providerLabel = SERVICES.find((s) => s.id === provider)?.label ?? "Service";
 
@@ -126,6 +156,7 @@ export function ServicesView() {
       providerLabel={providerLabel}
       byId={byId}
       providersLoading={providersQ.isPending}
+      ringId={routeFocus}
     />
   );
 }
@@ -138,6 +169,7 @@ function ServicesInner({
   providerLabel,
   byId,
   providersLoading,
+  ringId,
 }: {
   region: string;
   setRegion: (r: string) => void;
@@ -146,6 +178,8 @@ function ServicesInner({
   providerLabel: string;
   byId: Map<number, ProviderEntry>;
   providersLoading: boolean;
+  /** Deep-link highlight (wave 2-c): the provider the hash names, or null. */
+  ringId: number | null;
 }) {
   const [tab, setTab] = useState<"movie" | "tv">("movie");
 
@@ -207,18 +241,31 @@ function ServicesInner({
             <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
               {g.services.map((s) => {
                 const selected = s.id === provider;
+                // ring only while the deep-linked chip is still the active pick
+                const ringed = ringId === s.id && selected;
                 return (
                   <button
                     key={s.id}
                     type="button"
+                    data-service-id={s.id}
                     onClick={() => setProvider(s.id)}
                     aria-pressed={selected}
-                    className={`flex shrink-0 items-center gap-2.5 rounded-xl border px-4 py-2.5 transition-colors duration-150 ${
+                    className={`relative flex shrink-0 items-center gap-2.5 rounded-xl border px-4 py-2.5 transition-colors duration-150 ${
                       selected
                         ? "border-primary/70 bg-primary/10 text-white"
                         : "border-white/[0.08] bg-white/[0.03] text-ink-dim hover:border-white/25 hover:text-white"
-                    }`}
+                    } ${ringed ? "ring-1 ring-primary/50" : ""}`}
                   >
+                    {/* deep-link pulse: the built-in ping runs exactly twice
+                      * (~2s), then falls back to this element's invisible base
+                      * state — the persistent ring is the ring-1 above */}
+                    {ringed && (
+                      <span
+                        aria-hidden
+                        style={{ animationIterationCount: 2 }}
+                        className="pointer-events-none absolute inset-0 animate-ping rounded-xl border-2 border-primary opacity-0 motion-reduce:hidden"
+                      />
+                    )}
                     <Img
                       src={logo(byId.get(s.id)?.logo_path)}
                       alt=""

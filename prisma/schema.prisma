@@ -30,3 +30,14 @@ model Post {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// Task 32 / wave 1-a — shareable watchlists ("shared lists" feature).
+// `items` holds a JSON-serialized array of SavedItem-lite objects
+// ({ id, type, title, poster, backdrop, year, rating, folder? }) so the stored
+// payload always mirrors what the client saved — no joins, no drift.
+model SharedList {
+  id        String   @id // 12-char nanoid-style id, generated app-side
+  name      String
+  items     String
+  createdAt DateTime @default(now())
+}

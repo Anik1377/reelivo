@@ -10,6 +10,19 @@ import { NextRequest, NextResponse } from "next/server";
 
 const API = "https://api.themoviedb.org/3";
 
+/**
+ * Wave 1-a verification (Task 32): paths needed by the calendar view, episode radar
+ * and AI surfaces are ALL already covered below — no new patterns were required:
+ *   movie/upcoming             → ^(movie|tv)/(popular|top_rated|now_playing|upcoming|…)$
+ *   tv/{id} (series detail)    → ^(movie|tv)/\d+$
+ *   discover/(movie|tv)        → explicit; dotted/underscored params
+ *                                (primary_release_date.gte, with_runtime.lte,
+ *                                with_original_language, watch_region, …) pass the
+ *                                key regex /^[a-zA-Z_.]{1,40}$/ with values ≤200 chars
+ *   trending/(all|movie|tv)/(day|week) → ^trending/(all|movie|tv|person)/(day|week)$
+ *   (movie|tv)/{id}/reviews    → ^(movie|tv)/\d+/reviews$
+ * Verified live via curl (all 200 through the cache).
+ */
 const ALLOWED: RegExp[] = [
   /^trending\/(all|movie|tv|person)\/(day|week)$/,
   /^(movie|tv)\/(popular|top_rated|now_playing|upcoming|on_the_air|airing_today)$/,
