@@ -1,5 +1,8 @@
 "use client";
 
+import { ExternalLink } from "lucide-react";
+import { ADS_ENABLED, sponsorLinkProps } from "@/lib/ads";
+
 const QUICK_LINKS: { href: string; label: string }[] = [
   { href: "#/films", label: "Films" },
   { href: "#/series", label: "Series" },
@@ -31,6 +34,33 @@ export function Footer({ onShowShortcuts }: { onShowShortcuts?: () => void }) {
             ))}
           </nav>
         </div>
+
+        {ADS_ENABLED && (
+          <aside
+            aria-label="Sponsored"
+            className="mt-6 flex flex-col gap-3 rounded-xl border border-white/[0.06] bg-surface px-4 py-3.5 transition-colors duration-150 hover:border-white/[0.12] sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="shrink-0 rounded-full border border-white/15 bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-ink-dim">
+                Sponsored
+              </span>
+              <p className="min-w-0 text-xs leading-relaxed text-ink-dim">
+                reelivo is free — a visit to our sponsor helps pay for the reels.
+              </p>
+            </div>
+            <a
+              {...sponsorLinkProps}
+              className="group inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary/90 px-4 py-2 text-xs font-semibold text-primary-foreground transition-all duration-150 hover:bg-primary hover:shadow-[0_4px_20px_rgba(0,168,225,0.35)] active:scale-95"
+            >
+              Visit our sponsor
+              <ExternalLink
+                className="size-3.5 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                aria-hidden
+              />
+            </a>
+          </aside>
+        )}
+
         <div className="mt-4 flex flex-col gap-1.5 border-t border-white/[0.05] pt-4 text-xs text-ink-dim md:flex-row md:items-center md:justify-between">
           <p className="leading-relaxed">
             Metadata &amp; artwork by{" "}

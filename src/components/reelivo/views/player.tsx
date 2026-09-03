@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2, Play } from "lucide-react";
 import { hrefFor, navigate, useDetailStaleTime, useTmdb } from "@/lib/hooks";
 import { isProgressMessage, playerUrl } from "@/lib/player";
@@ -9,6 +9,7 @@ import { poster, runtime as fmtRuntime, score, still, titleOf, yearOf } from "@/
 import type { MovieDetail, Paged, MediaItem, TvDetail, TvSeason } from "@/lib/tmdb-types";
 import { Img } from "../bits";
 import { toSavedItem } from "../media";
+import { AdBreakGate } from "../ad-break";
 
 type Detail = MovieDetail | TvDetail;
 
@@ -116,6 +117,15 @@ export function PlayerView({
 
   const backHref = hrefFor({ name: "detail", type, id });
 
+  /* ------------------------- pre-roll ad break ------------------------- */
+  /* AdBreakGate (keyed per title/season/episode) overlays the frame while the
+   * stream preloads underneath; the cap lives in lib/ads.ts and kids profiles
+   * never see it. */
+  const kidsActive = useReelivo(
+    (g) => g.profiles.find((p) => p.id === g.activeProfileId)?.kids ?? false
+  );
+  const adGateKey = `${type}-${id}-${s}-${e}`;
+
   // Esc returns to the title page
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
@@ -215,15 +225,21 @@ export function PlayerView({
                 </span>
               </div>
             ) : (
-              <iframe
-                key={iframeSrc}
-                src={iframeSrc}
-                title={`${title} — free stream${type === "tv" ? `, S${s} E${e}` : ""}`}
-                allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                allowFullScreen
-                referrerPolicy="origin"
-                className="h-full w-full border-0"
-              />
+              <>
+                <iframe
+                  key={iframeSrc}
+                  src={iframeSrc}
+                  title={`${title} — free stream${type === "tv" ? `, S${s} E${e}` : ""}`}
+                  allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  referrerPolicy="origin"
+                  className="h-full w-full border-0"
+                />
+                {/* preloads underneath the break; never on kids profiles */}
+                {!kidsActive && (
+                  <AdBreakGate key={adGateKey} onExit={() => navigate(backHref)} />
+                )}
+              </>
             )}
           </div>
 
