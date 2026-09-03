@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useHashRoute, type Route } from "@/lib/hooks";
 import { useReelivo } from "@/lib/store";
@@ -31,6 +31,9 @@ function isTypingTarget(e: KeyboardEvent) {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable;
 }
 
+/* Runs as a layout effect on the client, skipped on the server. */
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 export function ReelivoApp() {
   const [queryClient] = useState(
     () =>
@@ -42,6 +45,15 @@ export function ReelivoApp() {
   const route = useHashRoute();
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  /* Persisted store rehydrates here — AFTER the first render, so the client
+   * hydrates byte-identical to the server (both see empty defaults; no Radix
+   * useId drift, no mismatch warnings). localStorage is synchronous, so the
+   * state lands inside this layout effect — before the very first paint.
+   * adoptLegacyData (store.ts) rides the onFinishHydration hook. */
+  useIsoLayoutEffect(() => {
+    useReelivo.persist.rehydrate();
+  }, []);
 
   /* Shared links may arrive as /?go=movie/155 (query deep-links are visible to
    * the server, so they carry per-title OG cards). Convert once on mount:

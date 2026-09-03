@@ -424,6 +424,13 @@ export const useReelivo = create<ReelivoState>()(
       /* v0/v1 payloads are the pre-profile shape (data on top level) — pass
        * them through; onRehydrateStorage adopts them into a first profile. */
       migrate: (persisted) => persisted as ReelivoState,
+      /* Rehydration is manual (ReelivoApp kicks it off in a layout effect):
+       * the client's FIRST render must stay byte-identical to the server's
+       * (both see the empty defaults) or React 19 hydration drifts — the
+       * class of Radix useId mismatches the console caught. Sync storage
+       * applies synchronously inside that effect, so persisted state is in
+       * place before the first paint — no flash, no mismatch. */
+      skipHydration: true,
       /* `gate` is ephemeral and must never survive a reload. */
       partialize: (s) => ({
         profiles: s.profiles,
