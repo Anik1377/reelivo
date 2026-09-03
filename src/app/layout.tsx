@@ -66,7 +66,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      https://windy-imagination.com/d/mNFZz.dYGHN/vNZxGLUd/feJmK9tu/ZrUYlrkgP/T/cRzBNezgkVzNMXTgcmtcNDzFM/3RO/T_MwyWMKQV
+
       <meta name="d1f2c246731e6378bb11d6b9963814bccf076248" content="d1f2c246731e6378bb11d6b9963814bccf076248" />
       <body
         suppressHydrationWarning
