@@ -549,3 +549,23 @@ Stage Summary:
 - The hydration mismatch is structurally impossible again: the store's only pre-paint mutation is the rehydrate itself; everything user-visible derives from rehydrated state at render time. Profile recognition survives (Task 27's feature) with the lock semantics intact and the post-PIN hang fixed.
 - Lesson recorded: with streamed SSR + selective hydration, NEVER mutate a hydration-sensitive store from mount effects — derive at render from the rehydrated state instead.
 - Next-phase recommendations: PIN-draft-lost-on-Save nit (Task 27); kids-mode content shaping; history stats strip; keyboard rail navigation; revoke the transit-exposed PAT.
+
+---
+Task ID: 29 (user report — hydration mismatch AGAIN, but a different culprit: "Week of Aug 30" client vs "Week of Aug 31" server in PremieringRail)
+Agent: Z.ai Code (main)
+Task: Kill the timezone-dependent hydration mismatch in the week window (home PremieringRail label + discover params + Premieres/Premiered subs)
+
+Work Log:
+- ENV EMERGENCY first: dev.log showed every /api/tmdb/* returning 401 — TMDB_API_KEY had been scrubbed from .env at the session boundary again (known recurring issue). Restored via the documented `git show e78eb4a:.env > .env` and restarted dev (setsid double-fork). API back to 200 before any other work.
+- Diagnosis: the user's trace showed PremieringRail's "First airs · Week of …" span differing by exactly one day between server and client. weekWindow() (format.ts, unchanged since the initial commit) mixed LOCAL calendar math (getDay + setDate on the non-midnight `now` instant) with UTC extraction (toISOString). Server TZ = UTC → gte = Mon Aug 31. The user's browser (Asia/Dhaka, UTC+6) was past local midnight (Fri 00:3x) → `mon` = Aug 31 00:30 LOCAL whose UTC instant is Aug 30 → gte = "2026-08-30" → "Week of Aug 30". One function fed THREE mismatch surfaces: the label text, the discover/tv query params (different results possible), and the `first_air_date >= win.today` Premieres/Premiered sub comparison.
+- FIX: weekWindow() is now pure UTC (getUTCDay + setUTCDate + toISOString) — identical output on every machine for the same instant. Trade-off documented in place: the Mon–Sun window follows the UTC calendar rather than the viewer's local one (deterministic SSR > local precision for a week rail; TMDB discover dates are calendar dates anyway). todayLine() (currently unused, exported) also pinned to timeZone: "UTC" to defuse the same future landmine. dateOf/airLabel audited and LEFT AS-IS: they parse "YYYY-MM-DDT00:00:00" as local-midnight and format with the same runtime's local tz + fixed en-US locale — self-consistent (same wall-clock date out in every TZ), so not hydration hazards.
+- PROOF (node, one process per TZ): OLD logic under Asia/Dhaka and Pacific/Kiritimati (both past-midnight UTC+ zones) computes gte=2026-08-30 while UTC computes 2026-08-31 — exactly the user's two values; NEW logic returns byte-identical {gte:2026-08-31, lte:2026-09-06, today:2026-09-03} across UTC / Asia/Dhaka / America/New_York / Pacific/Kiritimati / Pacific/Midway / Etc/GMT+12.
+- E2E (agent-browser): baseline load (UTC) → 0 page errors, 0 console warnings, label "Week of Aug 31", hydration completes (167 components). Then CDP Emulation.setTimezoneOverride — Asia/Dhaka (the user's exact repro conditions: Fri Sep 4 00:35 local) → reload → 0 errors, 0 hydration warnings, label STILL "Week of Aug 31", hydration clean; America/New_York (UTC-4, opposite direction) → same clean result; override restored to UTC. vitals hydration summary clean in every run.
+- lint clean, tsc 0 errors.
+- Files: src/lib/format.ts (weekWindow UTC rewrite + rationale comment, todayLine UTC pin).
+
+Stage Summary:
+- The second hydration class is dead: week-derived UI is now timezone-independent by construction. Combined with Task 23 (skipHydration architecture) and Task 28 (deriveGate — no store mutations in mount effects), all three known hydration-mismatch families (persisted-state drift, selective-hydration races, timezone math) are structurally closed.
+- Honest note: users very near the UTC Monday boundary now see the previous week's rail until 06:00 local (UTC+6) — by design; determinism chosen over local precision.
+- Also fixed this round: .env TMDB key loss (again) — recovery procedure worked; consider adding the key to a fallback commit or startup check to stop this recurring.
+- Next-phase recommendations unchanged: PIN-draft-lost-on-Save nit (Task 27); kids-mode content shaping; history stats strip; keyboard rail navigation; revoke the transit-exposed PAT (ghp_5WRf…).

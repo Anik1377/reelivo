@@ -99,6 +99,7 @@ export function todayLine(): string {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: "UTC",
   });
 }
 
@@ -109,15 +110,22 @@ export function airLabel(d?: string | null): string {
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-/** Current Mon–Sun window as ISO dates (UTC) — shared by the home rail and episode badges. */
+/** Current Mon–Sun window as ISO dates — shared by the home rail and episode badges.
+ * MUST be pure UTC: this runs during SSR *and* on the client's first render, and the
+ * two environments have different timezones (server=UTC, user=anywhere). The original
+ * local-math version (`getDay` + `setDate` on a non-midnight instant, then
+ * `toISOString`) let a UTC+6 client compute "Week of Aug 30" while the UTC server
+ * streamed "Week of Aug 31" — a hydration mismatch on the label, divergent discover
+ * query params, and flipped "Premieres/Premiered" strings. UTC math is identical on
+ * every machine for the same instant, so server and client always agree. */
 export function weekWindow(): { gte: string; lte: string; today: string } {
   const now = new Date();
-  const day = now.getDay(); // 0 Sun … 6 Sat
+  const day = now.getUTCDay(); // 0 Sun … 6 Sat (UTC calendar)
   const offsetToMonday = day === 0 ? -6 : 1 - day;
   const mon = new Date(now);
-  mon.setDate(now.getDate() + offsetToMonday);
+  mon.setUTCDate(now.getUTCDate() + offsetToMonday);
   const sun = new Date(mon);
-  sun.setDate(mon.getDate() + 6);
+  sun.setUTCDate(mon.getUTCDate() + 6);
   const iso = (d: Date) => d.toISOString().slice(0, 10);
   return { gte: iso(mon), lte: iso(sun), today: iso(now) };
 }
