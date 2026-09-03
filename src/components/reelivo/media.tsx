@@ -59,7 +59,7 @@ export function SaveButton({
       type="button"
       onClick={onSave}
       aria-label={saved ? "Remove from your list" : "Save to your list"}
-      className="chip-glass grid size-9 place-items-center rounded-full text-white transition-colors duration-150 hover:border-white/40"
+      className="chip-glass grid size-9 place-items-center rounded-full text-white transition-all duration-150 hover:border-white/40 active:scale-90"
     >
       {saved ? <BookmarkCheck className="size-4 text-primary" /> : <Bookmark className="size-4" />}
     </button>
@@ -175,7 +175,7 @@ export function StillCard({
       }}
       onMouseEnter={onHover}
       onFocus={onHover}
-      className="relative aspect-video w-full cursor-pointer overflow-hidden rounded-xl bg-surface-2 ring-1 ring-white/[0.06] transition-all duration-200 group-hover:ring-white/25 group-focus-within:ring-primary/60"
+      className="relative aspect-video w-full cursor-pointer overflow-hidden rounded-xl bg-surface-2 ring-1 ring-white/[0.06] transition-all duration-200 group-hover:ring-white/25 group-focus-within:ring-primary/60 active:scale-[0.985]"
     >
       <Img
         src={still(item.backdrop_path, "w780") ?? poster(item.poster_path, "w342")}
@@ -314,7 +314,7 @@ export function Rail({
           type="button"
           onClick={() => scroll(-1)}
           aria-label={`Scroll ${label} left`}
-          className="chip-glass pointer-events-auto grid size-9 place-items-center rounded-full text-white hover:border-white/40"
+          className="chip-glass pointer-events-auto grid size-9 place-items-center rounded-full text-white transition-all duration-150 hover:border-white/40 active:scale-90"
         >
           <ChevronLeft className="size-4" aria-hidden />
         </button>
@@ -324,7 +324,7 @@ export function Rail({
           type="button"
           onClick={() => scroll(1)}
           aria-label={`Scroll ${label} right`}
-          className="chip-glass pointer-events-auto grid size-9 place-items-center rounded-full text-white hover:border-white/40"
+          className="chip-glass pointer-events-auto grid size-9 place-items-center rounded-full text-white transition-all duration-150 hover:border-white/40 active:scale-90"
         >
           <ChevronRight className="size-4" aria-hidden />
         </button>

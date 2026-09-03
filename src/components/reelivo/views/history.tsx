@@ -132,9 +132,9 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
           type="button"
           onClick={remove}
           aria-label={`Remove ${entry.title} from history`}
-          className="grid size-7 place-items-center rounded-full text-ink-dim transition-colors duration-150 hover:bg-red-500/10 hover:text-red-300"
+          className="grid size-9 place-items-center rounded-full text-ink-dim transition-all duration-150 hover:bg-red-500/10 hover:text-red-300 active:scale-90"
         >
-          <X className="size-3.5" aria-hidden />
+          <X className="size-4" aria-hidden />
         </button>
       </div>
     </li>

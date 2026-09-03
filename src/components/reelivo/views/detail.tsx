@@ -262,7 +262,7 @@ function TitleBlock({
               })
             )
           }
-          className="inline-flex h-12 items-center gap-2 rounded-lg bg-white px-6 text-[14.5px] font-bold text-black transition-colors duration-150 hover:bg-white/85"
+          className="inline-flex h-12 items-center gap-2 rounded-lg bg-white px-6 text-[14.5px] font-bold text-black transition-all duration-150 hover:bg-white/85 active:scale-[0.97]"
         >
           <Play className="size-4.5 fill-current" aria-hidden />
           Watch Free
@@ -276,7 +276,7 @@ function TitleBlock({
           <button
             type="button"
             onClick={() => setTrailerOpen(true)}
-            className="inline-flex h-12 items-center gap-2 rounded-lg bg-white/10 px-4 text-sm font-semibold text-white transition-colors duration-150 hover:bg-white/20"
+            className="inline-flex h-12 items-center gap-2 rounded-lg bg-white/10 px-4 text-sm font-semibold text-white transition-all duration-150 hover:bg-white/20 active:scale-[0.97]"
           >
             <Clapperboard className="size-4" aria-hidden />
             Trailer
@@ -292,14 +292,31 @@ function TitleBlock({
               navigator
                 .share({ title: `Watch ${title} on Reelivo`, url })
                 .catch(() => undefined); // user dismissed the sheet
-            } else {
-              navigator.clipboard
-                ?.writeText(url)
-                .then(() => toast.success("Link copied"))
-                .catch(() => toast.error("Couldn't share this title"));
+              return;
             }
+            /* clipboard needs a secure context; execCommand covers the rest */
+            const copy = async () => {
+              try {
+                if (navigator.clipboard && window.isSecureContext) {
+                  await navigator.clipboard.writeText(url);
+                } else {
+                  const ta = document.createElement("textarea");
+                  ta.value = url;
+                  ta.style.position = "fixed";
+                  ta.style.opacity = "0";
+                  document.body.appendChild(ta);
+                  ta.select();
+                  document.execCommand("copy");
+                  ta.remove();
+                }
+                toast.success("Link copied");
+              } catch {
+                toast.error("Couldn't share this title");
+              }
+            };
+            void copy();
           }}
-          className="inline-flex h-12 items-center gap-2 rounded-lg bg-white/10 px-4 text-sm font-semibold text-white transition-colors duration-150 hover:bg-white/20"
+          className="inline-flex h-12 items-center gap-2 rounded-lg bg-white/10 px-4 text-sm font-semibold text-white transition-all duration-150 hover:bg-white/20 active:scale-[0.97]"
           aria-label="Share this title"
         >
           <Share2 className="size-4" aria-hidden />

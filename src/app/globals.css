@@ -79,6 +79,23 @@ html {
   scroll-behavior: smooth;
 }
 
+/* The page itself never scrolls sideways — only the rails do (they keep their
+ * own horizontal scrollers). `clip` beats `hidden` because it doesn't turn the
+ * viewport into a scroll container, so sticky/fixed chrome stays intact;
+ * `hidden` is kept as the fallback for older engines. This also kills the
+ * 1px overhang that browser zoom + classic scrollbars produce on Windows. */
+html,
+body {
+  overflow-x: hidden;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
+/* taps get their own press feedback (active:*) — no gray flash */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

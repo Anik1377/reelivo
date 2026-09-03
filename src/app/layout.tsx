@@ -74,6 +74,8 @@ export default function RootLayout({
         <Toaster
           theme="dark"
           position="bottom-right"
+          /* keep toasts clear of the mobile tab bar */
+          mobileOffset="calc(64px + env(safe-area-inset-bottom))"
           toastOptions={{
             style: {
               background: "#10151d",

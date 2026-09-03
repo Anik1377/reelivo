@@ -108,7 +108,7 @@ export function TopBar({
           <button
             type="button"
             onClick={onOpenSearch}
-            className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-1.5 text-[13px] text-white/60 transition-colors duration-150 hover:border-white/25 hover:text-white sm:flex"
+            className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-1.5 text-[13px] text-white/60 transition-all duration-150 hover:border-white/25 hover:text-white active:scale-95 sm:flex"
             aria-label="Search titles"
           >
             <Search className="size-3.5" aria-hidden />
@@ -122,13 +122,13 @@ export function TopBar({
             type="button"
             onClick={onOpenSearch}
             aria-label="Search titles"
-            className="grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/70 hover:border-white/25 hover:text-white sm:hidden"
+            className="grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/70 transition-all duration-150 hover:border-white/25 hover:text-white active:scale-90 sm:hidden"
           >
             <Search className="size-4" aria-hidden />
           </button>
           <a
             href={hrefFor({ name: "watchlist" })}
-            className="relative grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/70 transition-colors duration-150 hover:border-white/25 hover:text-white"
+            className="relative grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/70 transition-all duration-150 hover:border-white/25 hover:text-white active:scale-90"
             aria-label={`Your list${mounted && listCount ? `, ${listCount} saved` : ""}`}
           >
             <Bookmark className="size-4" aria-hidden />
