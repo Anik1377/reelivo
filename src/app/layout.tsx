@@ -66,6 +66,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <meta name="d1f2c246731e6378bb11d6b9963814bccf076248" content="d1f2c246731e6378bb11d6b9963814bccf076248" />
       <body
         suppressHydrationWarning
         className={`${manrope.variable} ${inter.variable} font-sans antialiased bg-background text-foreground`}
