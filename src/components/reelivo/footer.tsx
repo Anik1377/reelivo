@@ -35,7 +35,9 @@ export function Footer({ onShowShortcuts }: { onShowShortcuts?: () => void }) {
           </nav>
         </div>
 
-        {ADS_ENABLED && (
+        {/* Only rendered when a Direct Link zone is actually configured —
+         * the VAST video zone can't be opened as a link. */}
+        {ADS_ENABLED && sponsorLinkProps && (
           <aside
             aria-label="Sponsored"
             className="mt-6 flex flex-col gap-3 rounded-xl border border-white/[0.06] bg-surface px-4 py-3.5 transition-colors duration-150 hover:border-white/[0.12] sm:flex-row sm:items-center sm:justify-between"

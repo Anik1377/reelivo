@@ -1,28 +1,37 @@
 /* ------------------------------- sponsorship ------------------------------- */
-/* HilltopAds — Direct Link zone.
+/* HilltopAds monetization.
  *
- * A Direct Link zone has NO script tag and NO code snippet: the URL itself IS
- * the ad unit. The site earns by opening this URL from sponsored placements:
+ * The windy-imagination.com zone URL is a VAST 3.0 ad TAG (video): it returns
+ * an XML document describing linear video ads — media files, when the ad may
+ * be skipped (skipoffset), impression/tracking beacons and the advertiser
+ * ClickThrough. The pre-roll player (components/reelivo/ad-break.tsx) asks
+ * our server proxy /api/ads/vast for it, parses it (lib/vast.ts) and plays
+ * ONE ad before the stream. Rotate the zone via HILLTOPADS_VAST_URL in .env —
+ * no code edit needed.
  *
- *   1. Pre-roll "ad break" before the stream loads (views/player.tsx)
- *   2. "Sponsored" card in the footer (footer.tsx)
- *
- * To rotate the link later (new zone / new network), change the env var in
- * .env — no code edit needed:
- *   NEXT_PUBLIC_HILLTOP_DIRECT_LINK=https://…
+ * Direct Link zones are a DIFFERENT HilltopAds product (the URL itself
+ * redirects to an advertiser). If one is ever configured, setting
+ * NEXT_PUBLIC_HILLTOP_DIRECT_LINK re-enables the footer sponsor card
+ * automatically; empty = that placement stays hidden.
  */
 
-export const HILLTOP_DIRECT_LINK =
-  process.env.NEXT_PUBLIC_HILLTOP_DIRECT_LINK ??
-  "https://windy-imagination.com/dLm.FKzzdbG/NVv/Z/G/Ub/kedmm9auQZwUfl-k/PoTtcNzqN/zDk/zQMYTtcyt/Naz/Mi3rOVTIMsyoMDQe";
+import type { AnchorHTMLAttributes } from "react";
 
 /** Master switch — flip to false to strip every sponsored placement at once. */
 export const ADS_ENABLED = true;
 
-/* Pre-roll cadence: at most one ad break per device per window. First play of
- * a session shows it; plays within the window after that start instantly. */
+/** Optional Direct Link zone (drives the footer sponsor card). Empty = none. */
+export const HILLTOP_DIRECT_LINK = process.env.NEXT_PUBLIC_HILLTOP_DIRECT_LINK ?? "";
+
+/** Null when no Direct Link zone is configured — callers hide the placement. */
+export const sponsorLinkProps: AnchorHTMLAttributes<HTMLAnchorElement> | null =
+  HILLTOP_DIRECT_LINK
+    ? { href: HILLTOP_DIRECT_LINK, target: "_blank", rel: "sponsored noopener noreferrer" }
+    : null;
+
+/* Pre-roll cadence: at most one ad per device per window. First play of a
+ * session shows it; plays within the window after that start instantly. */
 export const AD_BREAK_EVERY_MS = 10 * 60 * 1000;
-export const AD_BREAK_SECONDS = 5;
 
 const CAP_KEY = "reelivo-adbreak-at";
 
@@ -32,12 +41,12 @@ export function shouldShowAdBreak(): boolean {
     const last = Number(localStorage.getItem(CAP_KEY) ?? 0);
     return !Number.isFinite(last) || Date.now() - last >= AD_BREAK_EVERY_MS;
   } catch {
-    return true; // storage unavailable (private mode) — the break is only 5s
+    return true; // storage unavailable (private mode) — one ad per page load at worst
   }
 }
 
-/** Record that a break just played — call when the break STARTS, so a reload
- * mid-break can't farm a fresh window. */
+/** Record that an ad just played — call when the break STARTS, so a reload
+ * mid-ad can't farm a fresh window. */
 export function markAdBreakShown() {
   try {
     localStorage.setItem(CAP_KEY, String(Date.now()));
@@ -46,10 +55,14 @@ export function markAdBreakShown() {
   }
 }
 
-/** Attributes every outbound sponsor link must carry — Google requires
- * rel="sponsored", and noopener keeps the ad tab from hijacking ours. */
-export const sponsorLinkProps = {
-  href: HILLTOP_DIRECT_LINK,
-  target: "_blank",
-  rel: "sponsored noopener noreferrer",
-} as const;
+/** QA hook: add ?adtest=1 to any URL to force the pre-roll with a bundled
+ * mock VAST (cap bypassed) — exercises the full ad flow even when the live
+ * zone has no fill. No-op outside the browser. */
+export function adTestMode(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return new URLSearchParams(window.location.search).has("adtest");
+  } catch {
+    return false;
+  }
+}
