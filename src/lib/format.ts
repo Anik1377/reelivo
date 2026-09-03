@@ -121,3 +121,23 @@ export function weekWindow(): { gte: string; lte: string; today: string } {
   const iso = (d: Date) => d.toISOString().slice(0, 10);
   return { gte: iso(mon), lte: iso(sun), today: iso(now) };
 }
+
+/** TMDB endpoints occasionally return the same title more than once —
+ * infinite-query pages can overlap when the server's total count shifts
+ * between fetches, and discover/provider mashups double-row too. Duplicate
+ * React keys break reconciliation (console: "two children with the same
+ * key") and duplicate cards read as a glitch — keep the first sighting.
+ * The composite key also guards mixed movie/tv lists, where numeric ids
+ * collide across types. */
+export function uniqueById<T extends { id: number; media_type?: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of items) {
+    const key = `${item.media_type ?? ""}-${item.id}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(item);
+    }
+  }
+  return out;
+}

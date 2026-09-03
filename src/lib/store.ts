@@ -161,7 +161,10 @@ export const useReelivo = create<ReelivoState>()(
     (set, get) => ({
       profiles: [],
       activeProfileId: null,
-      gate: "who",
+      /* Default OFF — ReelivoApp re-opens the wall after rehydration only when
+       * there is something to decide (no profile, none active, or a locked
+       * one). Returning users are recognized and land straight in the app. */
+      gate: "off",
       data: {},
 
       watchlist: [],

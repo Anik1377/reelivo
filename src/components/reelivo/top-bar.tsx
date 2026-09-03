@@ -62,7 +62,7 @@ export function TopBar({
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-40 transition-all duration-300 ease-out focus-within:translate-y-0 ${
+      className={`fixed inset-x-0 top-0 z-40 pt-[env(safe-area-inset-top,0px)] transition-all duration-300 ease-out focus-within:translate-y-0 ${
         hidden ? "-translate-y-full" : "translate-y-0"
       } ${
         scrolled

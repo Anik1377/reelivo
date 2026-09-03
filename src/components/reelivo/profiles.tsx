@@ -814,7 +814,7 @@ export function ProfileGate() {
       role="dialog"
       aria-modal="true"
       aria-label={onboarding ? "Create your first profile" : manage ? "Manage profiles" : "Who's watching"}
-      className="fixed inset-0 z-50 overflow-y-auto bg-black"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black pt-[env(safe-area-inset-top,0px)]"
     >
       {/* the layer the glass lenses refract — real art, heavily dimmed */}
       <div ref={backdropRef} aria-hidden className="pointer-events-none absolute inset-0">

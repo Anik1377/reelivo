@@ -15,6 +15,7 @@ import {
   still,
   titleOf,
   typeOf,
+  uniqueById,
   weekWindow,
   yearOf,
   genreNames,
@@ -403,9 +404,11 @@ function BecauseYouSaved() {
   if (!anchor) return null;
 
   const savedIds = new Set(watchlist.map((w) => w.id));
-  const items = (recs.data?.results ?? [])
-    .filter((i) => !i.adult && (i.backdrop_path || i.poster_path) && !savedIds.has(i.id))
-    .slice(0, 14);
+  const items = uniqueById(
+    (recs.data?.results ?? []).filter(
+      (i) => !i.adult && (i.backdrop_path || i.poster_path) && !savedIds.has(i.id)
+    )
+  ).slice(0, 14);
 
   if (items.length === 0) return null;
 
@@ -535,9 +538,7 @@ function PremieringRail() {
     sort_by: "popularity.desc",
   });
 
-  const items = (shows.data?.results ?? [])
-    .filter((i) => i.backdrop_path || i.poster_path)
-    .slice(0, 14);
+  const items = uniqueById((shows.data?.results ?? []).filter((i) => i.backdrop_path || i.poster_path)).slice(0, 14);
 
   if (shows.data && items.length === 0) return null;
 
@@ -809,8 +810,10 @@ export function HomeView() {
     "primary_release_date.gte": "2020-01-01",
   });
 
-  const items = (trending.data?.results ?? []).filter(
-    (i) => (i.media_type === "movie" || i.media_type === "tv") && !i.adult
+  const items = uniqueById(
+    (trending.data?.results ?? []).filter(
+      (i) => (i.media_type === "movie" || i.media_type === "tv") && !i.adult
+    )
   );
   const chart = items.slice(0, 10);
 
@@ -856,7 +859,7 @@ export function HomeView() {
             <ErrorNote onRetry={() => nowPlaying.refetch()} />
           ) : (
             <Rail label="in cinemas" ariaLabel="Films in cinemas now">
-              {(nowPlaying.data?.results ?? [])
+              {uniqueById(nowPlaying.data?.results ?? [])
                 .filter((i) => i.backdrop_path || i.poster_path)
                 .slice(0, 14)
                 .map((i) => (
@@ -887,7 +890,7 @@ export function HomeView() {
             <ErrorNote onRetry={() => onAir.refetch()} />
           ) : (
             <Rail label="new episodes" ariaLabel="Series with new episodes">
-              {(onAir.data?.results ?? [])
+              {uniqueById(onAir.data?.results ?? [])
                 .filter((i) => i.backdrop_path || i.poster_path)
                 .slice(0, 14)
                 .map((i) => (
@@ -915,7 +918,7 @@ export function HomeView() {
             <ErrorNote onRetry={() => praise.refetch()} />
           ) : (
             <Rail label="acclaimed" ariaLabel="Best of the decade so far">
-              {(praise.data?.results ?? [])
+              {uniqueById(praise.data?.results ?? [])
                 .filter((i) => i.backdrop_path || i.poster_path)
                 .slice(0, 14)
                 .map((i) => (

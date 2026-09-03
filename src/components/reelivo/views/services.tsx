@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { tmdbFetch } from "@/lib/hooks";
-import { logo } from "@/lib/format";
+import { logo, uniqueById } from "@/lib/format";
 import { useReelivo } from "@/lib/store";
 import type { MediaItem, Paged, ProviderEntry, ProvidersList } from "@/lib/tmdb-types";
 import { Chip, ErrorNote, Img, SectionHead, StillSkeleton } from "../bits";
@@ -106,7 +106,7 @@ function ServicesInner({
     staleTime: 5 * 60 * 1000,
   });
 
-  const items = (q.data?.pages ?? []).flatMap((p) => p.results).filter((i) => !i.adult);
+  const items = uniqueById((q.data?.pages ?? []).flatMap((p) => p.results).filter((i) => !i.adult));
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 pb-16 pt-24 md:px-8 md:pt-32 2xl:max-w-[1720px]">

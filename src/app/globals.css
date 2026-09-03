@@ -332,3 +332,14 @@ body {
     animation: none;
   }
 }
+
+/* iOS safe areas (Dynamic Island / notch / home indicator): the site ships
+ * viewport-fit=cover, so the page draws edge-to-edge and must keep its
+ * content inside the safe space. In-flow pages are pushed clear here; fixed
+ * chrome (top bar, gate, ad overlay, tab bar) pads itself individually.
+ * On everything else the env() values are 0 — zero visual change. */
+body {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}

@@ -297,8 +297,9 @@ function VastAdBreak({ onDone, onExit }: { onDone: () => void; onExit?: () => vo
           onClick={openClickThrough}
         />
 
-        {/* top chrome — AD badge, mobile back, stream countdown */}
-        <div className="absolute inset-x-3 top-3 flex items-center justify-between gap-2 md:inset-x-4 md:top-4">
+        {/* top chrome — AD badge, mobile back, stream countdown (kept inside
+         * the Dynamic Island safe space on standalone iOS) */}
+        <div className="absolute inset-x-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] flex items-center justify-between gap-2 md:inset-x-4 md:top-4">
           <div className="flex min-w-0 items-center gap-2">
             {onExit && (
               <button
@@ -330,7 +331,7 @@ function VastAdBreak({ onDone, onExit }: { onDone: () => void; onExit?: () => vo
         </div>
 
         {/* bottom chrome — sound, advertiser, skip */}
-        <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-3 md:inset-x-4 md:bottom-4">
+        <div className="absolute inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex items-end justify-between gap-3 md:inset-x-4 md:bottom-4">
           <div className="flex items-center gap-2">
             <button
               type="button"

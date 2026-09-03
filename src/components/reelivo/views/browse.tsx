@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { hrefFor, navigate, tmdbFetch } from "@/lib/hooks";
-import { slugify, still } from "@/lib/format";
+import { slugify, still, uniqueById } from "@/lib/format";
 import type { Genre, MediaItem, Paged } from "@/lib/tmdb-types";
 import { Chip, EmptyNote, ErrorNote, Img, SectionHead, StillSkeleton } from "../bits";
 import { StillCard } from "../media";
@@ -127,7 +127,7 @@ export function BrowseView({
     staleTime: 5 * 60 * 1000,
   });
 
-  const items = (q.data?.pages ?? []).flatMap((p) => p.results).filter((i) => !i.adult);
+  const items = uniqueById((q.data?.pages ?? []).flatMap((p) => p.results).filter((i) => !i.adult));
 
   /* Infinite scroll — when the sentinel below the grid drifts into view
    * (rootMargin pre-fetches ~2 rows early), pull the next page automatically.

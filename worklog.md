@@ -507,3 +507,21 @@ Stage Summary:
 - Kids profiles remain ad-free by design (safety guardrail) — tell the user explicitly; removing that exemption is a one-line change if they insist (kidsActive check in views/player.tsx).
 - Revenue expectation set: uncapped pre-rolls × HilltopAds fill rate. If fill feels low, levers remain: the zone's own settings (ad frequency/rotation in their dashboard) and re-adding our cap never increases fill.
 - Next-phase recommendations unchanged: kids-mode content shaping; history stats strip; keyboard rail navigation; revoke the transit-exposed PAT.
+
+---
+Task ID: 27 (user request — 3 fixes: recognize user on refresh, iPhone Dynamic Island safe area, duplicate React key 1433)
+Agent: Z.ai Code (main)
+Task: Profile recognition on reload + iOS safe-area padding + unique list keys
+
+Work Log:
+- PROFILE RECOGNITION: the who's-watching wall used to open on EVERY cold load (gate default "who"). Now the store defaults gate to "off" and ReelivoApp's rehydrate layout effect re-opens it ONLY when there is a decision to make — no profiles (onboarding), none active, or the active profile is PIN-locked (lock holds on cold load). Returning users land straight in the app; the decision happens inside the same layout effect as rehydration, before first paint, so the hydration-identity model from Task 23 is untouched. Verified E2E (agent-browser, with cache-buster query params — same-URL `open` calls can be soft no-ops, which faked an earlier pass): fresh storage → onboarding wall; real reload with unlocked active profile → NO wall, "Profile: Anik" top bar, home renders; locked active profile → wall with "Continue as Anik — locked" → keypad PIN 1234 → auto-unlock into the app; locked profile's manage-edit asks the PIN first (Task-21 semantics preserved). NOTE: the editor's Save changes discards a pending PIN draft — the PIN has its own "Enable lock" confirm; minor UX nit, not fixed this round.
+- DYNAMIC ISLAND SAFE AREA: layout.tsx already ships viewport-fit=cover, so the page draws edge-to-edge and content sat under the island. Added env(safe-area-inset-top/left/right) padding: body (all in-flow pages: home, detail, player header…), fixed chrome individually — top bar header, scroll-progress bar (bits.tsx, top env), who's-watching gate root, ad-overlay top/bottom chrome (calc with base offsets; MobileNav bottom + Toaster offset already carried env from Task 22). Desktop/Android: env() = 0 → zero visual change (computed paddings verified 0px in headless). statusBarStyle black-translucent already set, so the island area renders seamless black.
+- DUPLICATE KEY `1433` (browse.tsx:255): root cause — TMDB list endpoints return the same title twice (infinite-query pages overlap when the server's total count shifts between fetches; discover/provider mashups double-row), and keys were raw `i.id`. New lib/format.ts uniqueById() (composite `${media_type}-${id}` guard also covers mixed lists where movie/tv numeric ids collide) applied at ALL raw-id list sites: browse grid, services grid, home "because you saved" / premiering / trending hero (mixed-type!) / in-cinemas / on-air / praise rails. HeroCarousel and people rails already keyed safely. Console after home + browse sweep: zero warnings (verified via agent-browser console, not just window.onerror — React key warnings ride console.error).
+- lint clean, tsc 0 errors.
+- Files: src/lib/store.ts (gate default), src/components/reelivo/app.tsx (recognition), src/lib/format.ts (uniqueById), src/components/reelivo/views/{browse,services,home}.tsx (dedupe), src/app/globals.css (body safe-area), src/components/reelivo/{top-bar,profiles,bits,ad-break}.tsx (fixed-chrome env padding).
+
+Stage Summary:
+- Refreshes now feel like a real service: recognized users go straight in, the wall appears only for onboarding, no active pick, or a locked profile.
+- iOS PWA/standalone: every top-chrome element respects the Dynamic Island inset; content never hides under it (safe-area padding verified present on body + all fixed chrome; visual confirmation needs a real device).
+- List rendering is duplicate-proof across every TMDB-backed grid/rail.
+- Next-phase recommendations: PIN-draft-lost-on-Save nit; kids-mode content shaping; history stats strip; keyboard rail navigation; revoke the transit-exposed PAT.

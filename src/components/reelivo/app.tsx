@@ -50,9 +50,18 @@ export function ReelivoApp() {
    * hydrates byte-identical to the server (both see empty defaults; no Radix
    * useId drift, no mismatch warnings). localStorage is synchronous, so the
    * state lands inside this layout effect — before the very first paint.
-   * adoptLegacyData (store.ts) rides the onFinishHydration hook. */
+   * adoptLegacyData (store.ts) rides the onFinishHydration hook.
+   *
+   * Profile recognition: once state is in, open the who's-watching wall ONLY
+   * when there is a decision to make — no profiles yet (onboarding), none
+   * active, or the active profile is PIN-locked (its lock must hold on a
+   * cold load). Everyone else is recognized and lands straight into the app,
+   * all still inside this layout effect so the decision pre-dates the paint. */
   useIsoLayoutEffect(() => {
     useReelivo.persist.rehydrate();
+    const s = useReelivo.getState();
+    const active = s.profiles.find((p) => p.id === s.activeProfileId);
+    if (!active || active.pin) useReelivo.setState({ gate: "who" });
   }, []);
 
   /* Shared links may arrive as /?go=movie/155 (query deep-links are visible to
