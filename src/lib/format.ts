@@ -13,7 +13,7 @@ export function poster(path?: string | null, size: "w185" | "w342" | "w780" = "w
   return path ? `${IMG}/${size}${path}` : null;
 }
 
-export function profile(path?: string | null, size: "w185" = "w185") {
+export function profile(path?: string | null, size: "w185" | "w342" = "w185") {
   return path ? `${IMG}/${size}${path}` : null;
 }
 

@@ -10,16 +10,75 @@ import type { MediaItem, Paged, ProviderEntry, ProvidersList } from "@/lib/tmdb-
 import { Chip, ErrorNote, Img, SectionHead, StillSkeleton } from "../bits";
 import { StillCard } from "../media";
 
-export const SERVICES: { id: number; label: string }[] = [
-  { id: 8, label: "Netflix" },
-  { id: 119, label: "Prime Video" },
-  { id: 337, label: "Disney+" },
-  { id: 1899, label: "Max" },
-  { id: 15, label: "Hulu" },
-  { id: 350, label: "Apple TV+" },
-  { id: 531, label: "Paramount+" },
-  { id: 386, label: "Peacock" },
+/* Platforms are hand-verified against TMDB's live /watch/providers list (ids are
+ * TMDB's, so logos always render truthfully per region). Paramount+ used to be
+ * id 531 — TMDB split it into Premium (2303) / Essential (2616) tiers and 531
+ * vanished from the US list, which silently degraded the chip to a letter tile. */
+export interface PlatformRef {
+  id: number;
+  label: string;
+}
+
+export interface ServiceGroup {
+  kicker: string;
+  note?: string;
+  services: PlatformRef[];
+}
+
+export const SERVICE_GROUPS: ServiceGroup[] = [
+  {
+    kicker: "The majors",
+    services: [
+      { id: 8, label: "Netflix" },
+      { id: 119, label: "Prime Video" },
+      { id: 337, label: "Disney+" },
+      { id: 1899, label: "Max" },
+      { id: 15, label: "Hulu" },
+      { id: 350, label: "Apple TV+" },
+      { id: 2303, label: "Paramount+" },
+      { id: 386, label: "Peacock" },
+    ],
+  },
+  {
+    kicker: "Free & ad-supported",
+    note: "No subscription needed",
+    services: [
+      { id: 73, label: "Tubi" },
+      { id: 300, label: "Pluto TV" },
+      { id: 207, label: "The Roku Channel" },
+      { id: 209, label: "PBS" },
+    ],
+  },
+  {
+    kicker: "Specialist & prestige",
+    services: [
+      { id: 283, label: "Crunchyroll" },
+      { id: 526, label: "AMC+" },
+      { id: 34, label: "MGM+" },
+      { id: 43, label: "Starz" },
+      { id: 520, label: "Discovery+" },
+      { id: 257, label: "fuboTV" },
+      { id: 99, label: "Shudder" },
+      { id: 11, label: "MUBI" },
+      { id: 258, label: "Criterion Channel" },
+      { id: 151, label: "BritBox" },
+    ],
+  },
+  {
+    kicker: "India",
+    note: "Pick the India region for full catalogs",
+    services: [
+      { id: 2336, label: "JioHotstar" },
+      { id: 232, label: "Zee5" },
+      { id: 237, label: "SonyLIV" },
+      { id: 515, label: "MX Player" },
+      { id: 309, label: "Sun NXT" },
+      { id: 532, label: "aha" },
+    ],
+  },
 ];
+
+export const SERVICES: PlatformRef[] = SERVICE_GROUPS.flatMap((g) => g.services);
 
 const REGIONS = [
   { code: "US", label: "United States" },
@@ -132,37 +191,49 @@ function ServicesInner({
         }
       />
       <p className="mt-1 max-w-xl text-sm text-ink-dim">
-        What's popular on each subscription service right now, by region. Availability
-        according to TMDB.
+        What's popular on each service right now, by region — {SERVICES.length} platforms
+        tracked. Logos and catalogs follow the region you pick.
       </p>
 
-      <div className="no-scrollbar mt-6 flex gap-2 overflow-x-auto pb-1">
-        {SERVICES.map((s) => {
-          const selected = s.id === provider;
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setProvider(s.id)}
-              aria-pressed={selected}
-              className={`flex shrink-0 items-center gap-2.5 rounded-xl border px-4 py-2.5 transition-colors duration-150 ${
-                selected
-                  ? "border-primary/70 bg-primary/10 text-white"
-                  : "border-white/[0.08] bg-white/[0.03] text-ink-dim hover:border-white/25 hover:text-white"
-              }`}
-            >
-              <Img
-                src={logo(byId.get(s.id)?.logo_path)}
-                alt=""
-                fallbackTitle={s.label}
-                className="size-7 shrink-0 rounded-md object-contain"
-              />
-              <span className="text-[13px] font-semibold">{s.label}</span>
-            </button>
-          );
-        })}
+      <div className="mt-7 space-y-6">
+        {SERVICE_GROUPS.map((g) => (
+          <section key={g.kicker} aria-label={g.kicker}>
+            <div className="mb-2.5 flex items-baseline gap-3">
+              <h3 className="kicker text-[11px] text-ink-dim">{g.kicker}</h3>
+              {g.note && (
+                <span className="text-[11px] text-ink-dim/55">{g.note}</span>
+              )}
+            </div>
+            <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+              {g.services.map((s) => {
+                const selected = s.id === provider;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setProvider(s.id)}
+                    aria-pressed={selected}
+                    className={`flex shrink-0 items-center gap-2.5 rounded-xl border px-4 py-2.5 transition-colors duration-150 ${
+                      selected
+                        ? "border-primary/70 bg-primary/10 text-white"
+                        : "border-white/[0.08] bg-white/[0.03] text-ink-dim hover:border-white/25 hover:text-white"
+                    }`}
+                  >
+                    <Img
+                      src={logo(byId.get(s.id)?.logo_path)}
+                      alt=""
+                      fallbackTitle={s.label}
+                      className="size-7 shrink-0 rounded-md object-contain"
+                    />
+                    <span className="text-[13px] font-semibold">{s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
         {providersLoading && (
-          <span className="grid place-items-center px-4 text-ink-dim" aria-hidden>
+          <span className="grid w-fit place-items-center text-ink-dim" aria-hidden>
             <Loader2 className="size-4 animate-spin" />
           </span>
         )}

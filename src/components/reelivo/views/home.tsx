@@ -35,6 +35,7 @@ import {
   usePrefersReducedMotion,
 } from "../bits";
 import { Rail, StillCard, SaveButton, toSavedItem } from "../media";
+import { SERVICE_GROUPS } from "./services";
 
 /* --------------------------- hero (rotating) ------------------------------ */
 
@@ -445,16 +446,9 @@ function BecauseYouSaved() {
 
 /* ---------------------------- where to watch ------------------------------ */
 
-const SERVICES: { id: number; label: string }[] = [
-  { id: 8, label: "Netflix" },
-  { id: 119, label: "Prime Video" },
-  { id: 337, label: "Disney+" },
-  { id: 1899, label: "Max" },
-  { id: 15, label: "Hulu" },
-  { id: 350, label: "Apple TV+" },
-  { id: 531, label: "Paramount+" },
-  { id: 386, label: "Peacock" },
-];
+/* Single source of truth lives in services.tsx — the home strip shows the
+ * majors only; the full grouped catalogue (28 platforms) is on the page. */
+const SERVICES = SERVICE_GROUPS[0].services;
 
 function ServiceTile({
   entry,
