@@ -80,12 +80,47 @@ const EMPTY_DATA: ProfileData = {
 /** Gate mode: "who" = pick a profile · "manage" = pick + edit · "off" = in-app. */
 export type GateMode = "who" | "manage" | "off";
 
+/** Resolve the wall's visibility. `gate` is the EXPLICIT override (opened via
+ * the switcher / manage flow, closed by its Done button); when no override is
+ * active, the wall derives from the rehydrated profiles: it appears only when
+ * there is a decision to make — no profiles (onboarding), none active, or the
+ * active profile is PIN-locked (its lock must hold on a cold load). Everyone
+ * else is recognized and lands straight in the app.
+ *
+ * Deriving (instead of writing a state flip from an effect) matters: with
+ * streamed SSR + selective hydration, a store flip inside a layout effect
+ * re-renders while later boundaries are still hydrating, and the freshly
+ * mounted subtree diverges from the server HTML (the return of the Radix
+ * useId mismatch). The rehydrate itself — which lands profiles here — is the
+ * only mutation, and it happens in ReelivoApp's layout effect before paint. */
+/* Profiles that passed their PIN this browser session live in the store as
+ * `unlocked` — ephemeral (partialize never persists it), so a cold load asks
+ * again. It must live IN the store (not a module set) because deriveGate runs
+ * at render time: unlocking the ALREADY-active profile changes nothing else
+ * (same id, same profiles, gate already "off"), and a change React can't see
+ * would leave the wall hanging. */
+
+export function deriveGate(
+  gate: GateMode,
+  profiles: Profile[],
+  activeProfileId: string | null,
+  unlocked: string[]
+): GateMode {
+  if (gate !== "off") return gate;
+  const active = profiles.find((p) => p.id === activeProfileId);
+  if (!active || (active.pin && !unlocked.includes(active.id))) return "who";
+  return "off";
+}
+
 interface ReelivoState {
   /* profile layer */
   profiles: Profile[];
   activeProfileId: string | null;
   /** Ephemeral — deliberately NOT persisted: every cold load opens "Who's watching?". */
   gate: GateMode;
+  /** Profiles that passed their PIN this session — ephemeral (never
+   * persisted), read by deriveGate so an unlocked active profile stays in. */
+  unlocked: string[];
   data: Record<string, ProfileData>;
 
   /* active profile mirror — what the whole UI reads */
@@ -107,6 +142,7 @@ interface ReelivoState {
   switchProfile: (id: string) => void;
   openGate: (mode: Exclude<GateMode, "off">) => void;
   closeGate: () => void;
+  markProfileUnlocked: (id: string) => void;
   /** Store the PIN hash (or null to remove the lock). Hashing happens in the
    * caller via lib/pin.ts so the store stays synchronous. */
   setProfilePin: (id: string, pinHash: string | null) => void;
@@ -165,6 +201,7 @@ export const useReelivo = create<ReelivoState>()(
        * there is something to decide (no profile, none active, or a locked
        * one). Returning users are recognized and land straight in the app. */
       gate: "off",
+      unlocked: [],
       data: {},
 
       watchlist: [],
@@ -250,6 +287,8 @@ export const useReelivo = create<ReelivoState>()(
 
       openGate: (mode) => set({ gate: mode }),
       closeGate: () => set({ gate: "off" }),
+      markProfileUnlocked: (id) =>
+        set((s) => (s.unlocked.includes(id) ? s : { unlocked: [...s.unlocked, id] })),
 
       /* --------------------------- media (mirror) --------------------------- */
 

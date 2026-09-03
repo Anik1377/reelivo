@@ -171,6 +171,7 @@ function PinBody({
 }) {
   const switchProfile = useReelivo((s) => s.switchProfile);
   const setProfilePin = useReelivo((s) => s.setProfilePin);
+  const markProfileUnlocked = useReelivo((s) => s.markProfileUnlocked);
   const av = avatarOf(profile);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -179,6 +180,7 @@ function PinBody({
 
   const proceed = () => {
     closeProfilePin();
+    markProfileUnlocked(profile.id); // this session: the derived wall stays closed for them
     if (purpose === "switch") {
       switchProfile(profile.id);
       toast(`Watching as ${profile.name}`, { duration: 2200 });

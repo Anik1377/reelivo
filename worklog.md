@@ -525,3 +525,27 @@ Stage Summary:
 - iOS PWA/standalone: every top-chrome element respects the Dynamic Island inset; content never hides under it (safe-area padding verified present on body + all fixed chrome; visual confirmation needs a real device).
 - List rendering is duplicate-proof across every TMDB-backed grid/rail.
 - Next-phase recommendations: PIN-draft-lost-on-Save nit; kids-mode content shaping; history stats strip; keyboard rail navigation; revoke the transit-exposed PAT.
+
+---
+Task ID: 28 (user report — the Radix useId hydration mismatch RETURNED: server radix-_R_14hindlb_ vs client radix-_R_94andlb_)
+Agent: Z.ai Code (main)
+Task: Kill the hydration mismatch for good — the Task-27 gate recognition setState raced selective hydration
+
+Work Log:
+- REPRODUCED in-sandbox: seed realistic returning-user localStorage → true cold load → the exact attribute-mismatch error the user pasted. Bisected immediately: rehydrate() alone in the layout effect = CLEAN; adding the Task-27 recognition `useReelivo.setState({ gate: "who" })` = ERROR. Root cause: Next.js streams SSR and React hydrates selectively — a store flip inside a layout effect re-renders while later boundaries are still hydrating, so components that hadn't hydrated yet rendered against mutated state (persisted profiles + wall) and their tree positions/ids diverged from the streamed server HTML. Task 23's architecture was correct but fragile to a second mutation; Task 27 added exactly that.
+- FIX — derivation instead of mutation: store.ts gains deriveGate(gate, profiles, activeProfileId, unlocked): the explicit override (who/manage from the switcher, closed by Done) wins; otherwise the wall appears only when there is a decision to make — no profiles (onboarding), none active, or the active profile is PIN-locked and not yet authenticated this session. ReelivoApp renders `{deriveGate(...) !== "off" && <ProfileGate />}`; the layout effect is back to mutation-free `rehydrate()` only. Consequences: SSR now renders the wall (defaults = no profiles), the client's first render matches it byte-for-byte, and the rehydrate (proven race-free) unmounts it pre-paint for recognized users — no flash, same Task-23 guarantee.
+- SECOND bug found by the derive approach: unlocking the ALREADY-active profile changed nothing observable (same id, same profiles, gate already "off"), so the wall hung after a correct PIN. Fix: `unlocked: string[]` lives IN the store (ephemeral — partialize never persists it, exactly like gate), markProfileUnlocked(id) action called by the PIN dialog's proceed(); deriveGate checks it. A cold load always asks again (session-scoped by design).
+- Verified matrix (agent-browser, every scenario a TRUE cold load via cache-buster URLs — same-URL `open` can be a soft no-op which faked one earlier pass, noted in Task 27):
+  1. returning UNLOCKED user → NO wall, "Profile: Anik", home rendered, 0 hydration errors (the user's exact complaint);
+  2. returning LOCKED user → wall with "Continue as Anik — locked" → keypad PIN → wall closes properly, app rendered, 0 errors;
+  3. fresh storage → onboarding wall, 0 errors;
+  4. deep-hash cold load #/watchlist → renders the list, 0 errors;
+  5. manage override → wall opens, Done closes it;
+  6. SSR HTML contains the onboarding wall and the trigger id radix-_R_14hindlb_ — the same id the user's client used to compute — server and client now agree by construction.
+  Console greps used `agent-browser console` (React key/hydration warnings ride console.error, which window.onerror misses).
+- Files: src/lib/store.ts (GateMode unchanged; +unlocked state/action, +deriveGate), src/components/reelivo/app.tsx (derive render, mutation-free effect), src/components/reelivo/profiles.tsx (markProfileUnlocked on PIN proceed). lint + tsc clean.
+
+Stage Summary:
+- The hydration mismatch is structurally impossible again: the store's only pre-paint mutation is the rehydrate itself; everything user-visible derives from rehydrated state at render time. Profile recognition survives (Task 27's feature) with the lock semantics intact and the post-PIN hang fixed.
+- Lesson recorded: with streamed SSR + selective hydration, NEVER mutate a hydration-sensitive store from mount effects — derive at render from the rehydrated state instead.
+- Next-phase recommendations: PIN-draft-lost-on-Save nit (Task 27); kids-mode content shaping; history stats strip; keyboard rail navigation; revoke the transit-exposed PAT.

@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useHashRoute, type Route } from "@/lib/hooks";
-import { useReelivo } from "@/lib/store";
+import { deriveGate, useReelivo } from "@/lib/store";
 import { TopBar } from "./top-bar";
 import { MobileNav } from "./mobile-nav";
 import { Footer } from "./footer";
@@ -52,16 +52,19 @@ export function ReelivoApp() {
    * state lands inside this layout effect — before the very first paint.
    * adoptLegacyData (store.ts) rides the onFinishHydration hook.
    *
-   * Profile recognition: once state is in, open the who's-watching wall ONLY
-   * when there is a decision to make — no profiles yet (onboarding), none
-   * active, or the active profile is PIN-locked (its lock must hold on a
-   * cold load). Everyone else is recognized and lands straight into the app,
-   * all still inside this layout effect so the decision pre-dates the paint. */
+   * Profile recognition lives in deriveGate (store.ts): the wall's visibility
+   * is derived from the rehydrated profiles at render time — returning users
+   * go straight in, the wall only appears when there is a decision to make.
+   * Keep this effect mutation-free beyond the rehydrate itself (see the note
+   * inside): an extra state flip here re-renders mid-hydration and breaks
+   * tree positions against the streamed server HTML. */
   useIsoLayoutEffect(() => {
     useReelivo.persist.rehydrate();
-    const s = useReelivo.getState();
-    const active = s.profiles.find((p) => p.id === s.activeProfileId);
-    if (!active || active.pin) useReelivo.setState({ gate: "who" });
+    /* NO extra setState here: the wall's visibility is DERIVED from the
+     * rehydrated profiles (see deriveGate in store.ts) — the rehydrate itself
+     * is the only store mutation, and it lands before the first paint. A
+     * second state flip inside this layout effect re-rendered mid-hydration
+     * (selective hydration) and resurrected the Radix useId mismatch. */
   }, []);
 
   /* Shared links may arrive as /?go=movie/155 (query deep-links are visible to
@@ -110,6 +113,9 @@ export function ReelivoApp() {
 
   const immersive = route.name === "play";
   const gate = useReelivo((s) => s.gate);
+  const profiles = useReelivo((s) => s.profiles);
+  const activeProfileId = useReelivo((s) => s.activeProfileId);
+  const unlocked = useReelivo((s) => s.unlocked);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -155,7 +161,7 @@ export function ReelivoApp() {
         <FolderPicker />
         <ProfileEditor />
         <ProfilePinDialog />
-        {gate !== "off" && <ProfileGate />}
+        {deriveGate(gate, profiles, activeProfileId, unlocked) !== "off" && <ProfileGate />}
       </div>
     </QueryClientProvider>
   );
