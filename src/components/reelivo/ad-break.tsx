@@ -23,20 +23,22 @@ import { fireBeacon, parseVast, pickAd, pickMediaFile, type VastLinearAd } from 
  *  - impression / start / quartile / progress beacons fire as the ad runs
  *  - tapping the ad opens the advertiser in a new tab (VAST ClickThrough)
  *  - no fill / fetch failure / broken media → the stream starts immediately
- *  - capped to once per window by lib/ads.ts; kids profiles never see it
+ *  - requested on EVERY stream start (no frequency cap — see lib/ads.ts);
+ *    a no-fill reply from the zone means the stream starts instantly
+ *  - kids profiles never see it
  */
 
 type Phase = "loading" | "playing" | "gesture";
 
-/* One ad decision per play target — remounts (fresh cap check) whenever the
- * keyed target changes, so a later play after the cap window earns an ad
- * even if the player never unmounted. */
+/* One ad decision per play target — remounts whenever the keyed target
+ * changes, so every play (any title / season / episode) earns its own
+ * pre-roll request. */
 export function AdBreakGate({ onExit }: { onExit?: () => void }) {
   const [active] = useState(() => shouldShowAdBreak() || adTestMode());
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    if (active) markAdBreakShown(); // stamp at start so a reload can't farm a fresh window
+    if (active) markAdBreakShown(); // bookkeeping stamp (cadence is currently uncapped)
   }, [active]);
 
   if (!active || done) return null;

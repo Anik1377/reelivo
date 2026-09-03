@@ -29,19 +29,23 @@ export const sponsorLinkProps: AnchorHTMLAttributes<HTMLAnchorElement> | null =
     ? { href: HILLTOP_DIRECT_LINK, target: "_blank", rel: "sponsored noopener noreferrer" }
     : null;
 
-/* Pre-roll cadence: at most one ad per device per window. First play of a
- * session shows it; plays within the window after that start instantly. */
-export const AD_BREAK_EVERY_MS = 10 * 60 * 1000;
+/* Pre-roll cadence — 0 means the pre-roll is requested on EVERY stream start
+ * (user request: "it must always show ads"). To re-introduce a frequency cap
+ * later, set a millisecond window here, e.g. 10 * 60 * 1000 = one ad per
+ * device per 10 minutes. Whether an ad actually PLAYS is still up to
+ * HilltopAds inventory: a no-fill reply = the stream starts instantly. */
+export const AD_BREAK_EVERY_MS = 0;
 
 const CAP_KEY = "reelivo-adbreak-at";
 
 export function shouldShowAdBreak(): boolean {
   if (!ADS_ENABLED || typeof window === "undefined") return false;
+  if (AD_BREAK_EVERY_MS <= 0) return true; // every play earns a pre-roll request
   try {
     const last = Number(localStorage.getItem(CAP_KEY) ?? 0);
     return !Number.isFinite(last) || Date.now() - last >= AD_BREAK_EVERY_MS;
   } catch {
-    return true; // storage unavailable (private mode) — one ad per page load at worst
+    return true; // storage unavailable (private mode) — the ad plays regardless
   }
 }
 

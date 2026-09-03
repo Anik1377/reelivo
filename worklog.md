@@ -489,3 +489,21 @@ Stage Summary:
 - Next-phase recommendations: 1) kids-mode content shaping; 2) history stats strip; 3) keyboard rail navigation; 4) revoke the transit-exposed PAT (ghp_5WRf…).
 
 Addendum (Task 25, same session): the user briefly asked to remove the video ad ("doesn't work on iframe") but immediately retracted — "no it worked". ZERO changes were made for the removal; the VAST pre-roll stays fully enabled (ADS_ENABLED=true, HEAD e187d9b). If a future round reads only the removal message, ignore it — the ad system is wanted as-is until the user finds a better option.
+
+---
+Task ID: 26 (user request — "it sometimes plays the ad sometimes doesn't, make it always show ads")
+Agent: Z.ai Code (main)
+Task: Remove the pre-roll frequency cap — request the ad on EVERY stream start
+
+Work Log:
+- Root cause of "sometimes no ad": the Task-25 cadence capped the pre-roll to once per device per 10 minutes (AD_BREAK_EVERY_MS = 10 * 60 * 1000, stamped at break start). Every play inside that window mounted no gate at all — by design then, wrong now.
+- src/lib/ads.ts: AD_BREAK_EVERY_MS → 0; shouldShowAdBreak() short-circuits to true when the window is <= 0 (storage/privacy-mode fallback unchanged). The knob is documented in place: set a ms value there to re-introduce a cap (e.g. 10 * 60 * 1000 for one ad per 10 min).
+- ad-break.tsx: comments updated (header bullets + gate remount rationale + stamp note) to describe the uncapped cadence; logic untouched beyond that. Kids profiles still never see ads (unchanged guardrail).
+- QA (agent-browser, 1440×900, console clean): fresh storage → play 155 → exactly 1 /api/ads/vast fetch; immediately play 872585 → 1 MORE fetch (the regression proof — under the old cap the second play fetched nothing); third play (447365) caught the ad overlay visible mid-poll. Sandbox fill is intermittent by nature (zone serves empty VAST to datacenter clients): a no-fill/failed creative still flashes through to the stream instantly, which is the designed behavior — the REQUEST now happens every play regardless.
+- lint clean, tsc 0 errors.
+
+Stage Summary:
+- Every stream start now attempts the pre-roll; whether an actual video plays depends only on HilltopAds having fill at that moment (their inventory rotation, not our code). Users will see: ad → skip after 15s → stream, or a sub-second flash → stream when the zone comes back empty.
+- Kids profiles remain ad-free by design (safety guardrail) — tell the user explicitly; removing that exemption is a one-line change if they insist (kidsActive check in views/player.tsx).
+- Revenue expectation set: uncapped pre-rolls × HilltopAds fill rate. If fill feels low, levers remain: the zone's own settings (ad frequency/rotation in their dashboard) and re-adding our cap never increases fill.
+- Next-phase recommendations unchanged: kids-mode content shaping; history stats strip; keyboard rail navigation; revoke the transit-exposed PAT.
