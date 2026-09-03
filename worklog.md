@@ -487,3 +487,5 @@ Stage Summary:
 - Revenue notes: the sandbox always sees no-fill (zone filters datacenter clients), but real browsers will get fill — verify in the HilltopAds dashboard once traffic starts; if impressions look low, the skipoffset (15s) and one-ad-per-10-min cadence (AD_BREAK_EVERY_MS) are the two levers, both one-line tweaks.
 - Known/unchanged: wrapper (<Wrapper>) VAST responses are skipped, not followed (HilltopAds serves InLine); Videasy stream may still rest on its own (honest copy shown); PAT still needs revocation.
 - Next-phase recommendations: 1) kids-mode content shaping; 2) history stats strip; 3) keyboard rail navigation; 4) revoke the transit-exposed PAT (ghp_5WRf…).
+
+Addendum (Task 25, same session): the user briefly asked to remove the video ad ("doesn't work on iframe") but immediately retracted — "no it worked". ZERO changes were made for the removal; the VAST pre-roll stays fully enabled (ADS_ENABLED=true, HEAD e187d9b). If a future round reads only the removal message, ignore it — the ad system is wanted as-is until the user finds a better option.
