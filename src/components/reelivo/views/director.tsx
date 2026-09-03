@@ -24,7 +24,7 @@ import type {
   PersonCredit,
   PersonDetail,
 } from "@/lib/tmdb-types";
-import { ErrorNote, Img, StillSkeleton } from "../bits";
+import { ErrorNote, Img, LostLink, StillSkeleton } from "../bits";
 import { StillCard } from "../media";
 
 /* A director's collection — an editorial career page rather than a bare grid:
@@ -70,7 +70,7 @@ function creditToMedia(c: PersonCredit): MediaItem {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 px-4 py-3.5 first:pl-0">
+    <div className="min-w-0 bg-surface-2 px-4 py-3.5">
       <p className="tabular display text-xl leading-none text-white md:text-2xl">{value}</p>
       <p className="mt-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-ink-dim">
         {label}
@@ -81,8 +81,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 export function DirectorView({ id }: { id: number }) {
   const stale = useDetailStaleTime();
-  const person = useTmdb<PersonDetail>(`person/${id}`, {}, stale);
-  const credits = useTmdb<CombinedCredits>(`person/${id}/combined_credits`, {}, stale);
+  const person = useTmdb<PersonDetail>(id ? `person/${id}` : null, {}, stale);
+  const credits = useTmdb<CombinedCredits>(id ? `person/${id}/combined_credits` : null, {}, stale);
   const prefetch = usePrefetchDetail();
 
   const [lens, setLens] = useState<Lens>("all");
@@ -118,6 +118,11 @@ export function DirectorView({ id }: { id: number }) {
       document.title = "Reelivo — what to watch tonight";
     };
   }, [person.data]);
+
+  /* Truncated/junk share links (e.g. "#/director/525?x") parse to id 0 —
+   * show the designed dead-end instead of a dead fetch + useless retry.
+   * Kept after every hook: queries above are already idle (path=null). */
+  if (!id) return <LostLink />;
 
   if (person.isLoading || credits.isLoading) {
     return (
@@ -257,8 +262,9 @@ export function DirectorView({ id }: { id: number }) {
           </div>
         </div>
 
-        {/* career stat strip */}
-        <div className="mt-8 grid grid-cols-2 gap-x-2 divide-x divide-white/[0.06] rounded-2xl border border-white/[0.07] bg-surface-2/60 sm:grid-cols-4">
+        {/* career stat strip — hairline grid: real dividers between every cell,
+         * no stray edge lines on the mobile 2×2, uniform padding */}
+        <div className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.06] sm:grid-cols-4">
           <Stat label="Directing credits" value={String(allDirection.length)} />
           <Stat label="Ranked titles" value={String(board.length)} />
           <Stat label="Board average" value={avg > 0 ? score(avg) : "—"} />
@@ -397,7 +403,7 @@ export function DirectorView({ id }: { id: number }) {
                     >
                       <span
                         aria-hidden
-                        className="tabular display pointer-events-none absolute -left-1.5 -top-2 z-10 text-[30px] leading-none text-white/25 transition-colors duration-200 group-hover:text-primary/90"
+                        className="tabular absolute -left-1.5 -top-2 z-10 grid h-7 min-w-7 place-items-center rounded-lg border border-white/15 bg-black/75 px-1.5 text-[12.5px] font-bold leading-none text-white/90 shadow-[0_4px_14px_rgba(0,0,0,0.55)] backdrop-blur-sm transition-colors duration-200 group-hover:border-primary/70 group-hover:text-primary"
                       >
                         {i + 1}
                       </span>
@@ -405,6 +411,7 @@ export function DirectorView({ id }: { id: number }) {
                         item={m}
                         type={type}
                         preview
+                        fluid
                         sub={
                           showAll
                             ? `${yearOf(m)} · Directed`

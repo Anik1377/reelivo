@@ -48,7 +48,7 @@ import type {
   Videos,
   WatchProviders,
 } from "@/lib/tmdb-types";
-import { ErrorNote, Img, RailSkeleton, Score, StillSkeleton, useMounted } from "../bits";
+import { ErrorNote, Img, LostLink, RailSkeleton, Score, StillSkeleton, useMounted } from "../bits";
 import { Rail, StillCard, toSavedItem } from "../media";
 import { openFolderPicker } from "../folder-picker";
 import { TrailerDialog } from "../trailer-dialog";
@@ -1142,9 +1142,9 @@ function Episodes({
 
 export function DetailView({ type, id }: { type: "movie" | "tv"; id: number }) {
   const stale = useDetailStaleTime();
-  const detail = useTmdb<Detail>(`${type}/${id}`, {}, stale);
-  const credits = useTmdb<Credits>(`${type}/${id}/credits`, {}, stale);
-  const recs = useTmdb<Paged<MediaItem>>(`${type}/${id}/recommendations`);
+  const detail = useTmdb<Detail>(id ? `${type}/${id}` : null, {}, stale);
+  const credits = useTmdb<Credits>(id ? `${type}/${id}/credits` : null, {}, stale);
+  const recs = useTmdb<Paged<MediaItem>>(id ? `${type}/${id}/recommendations` : null);
   const prefetch = usePrefetchDetail();
   const pushRecent = useReelivo((s) => s.pushRecent);
   const [seasonNo, setSeasonNo] = useState(1);
@@ -1175,6 +1175,10 @@ export function DetailView({ type, id }: { type: "movie" | "tv"; id: number }) {
       document.title = "Reelivo — what to watch tonight";
     };
   }, [detail.data]);
+
+  /* Truncated/junk share links parse to id 0 — designed dead-end, idle queries;
+   * the sub-components below never mount, so their fetches stay idle too. */
+  if (!id) return <LostLink />;
 
   if (detail.isPending) {
     return (

@@ -6,7 +6,7 @@ import { hrefFor, navigate, useDetailStaleTime, usePrefetchDetail, useTmdb } fro
 import { dek, poster, score, still, yearOf } from "@/lib/format";
 import { progressKey, useReelivo } from "@/lib/store";
 import type { CollectionDetail, MediaItem } from "@/lib/tmdb-types";
-import { ErrorNote, Img, StillSkeleton } from "../bits";
+import { ErrorNote, Img, LostLink, StillSkeleton } from "../bits";
 
 /* A franchise viewing order — parts sorted by release, with personal progress. */
 
@@ -105,7 +105,7 @@ function PartRow({ part, index }: { part: MediaItem; index: number }) {
 
 export function CollectionView({ id }: { id: number }) {
   const stale = useDetailStaleTime();
-  const q = useTmdb<CollectionDetail>(`collection/${id}`, {}, stale);
+  const q = useTmdb<CollectionDetail>(id ? `collection/${id}` : null, {}, stale);
 
   const parts = useMemo(() => {
     const raw = q.data?.parts ?? [];
@@ -124,6 +124,9 @@ export function CollectionView({ id }: { id: number }) {
       document.title = "Reelivo — what to watch tonight";
     };
   }, [q.data]);
+
+  /* Truncated/junk share links parse to id 0 — designed dead-end, idle query. */
+  if (!id) return <LostLink />;
 
   if (q.isPending) {
     return (

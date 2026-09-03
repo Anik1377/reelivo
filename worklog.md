@@ -588,3 +588,23 @@ Stage Summary:
 - Director pages are a destination, not a list: signature work panel + career stats + lens filters + honest long tail, all in the black/cyan system with zero new tokens.
 - Known/unchanged: platform chips outside the picked region render letter tiles by design (honest); TMDB "Prime Video" US logo baked-in text (real data); PAT still needs revocation (ghp_5WRf…).
 - Next-phase recommendations: PIN-draft-lost-on-Save nit; kids-mode content shaping; history stats strip; keyboard rail navigation; per-service deep links (#/services/{id}).
+---
+Task ID: 31 (user report — "major UI issues in directors tab")
+Agent: Z.ai Code (main)
+Task: Fix the director board's broken grid layout + designed dead-end for junk links + rank/stat polish
+
+Work Log:
+- ROOT CAUSE (the major UI issue): StillCard ships fixed rail widths (w-[240px] md:w-[300px] 2xl:w-[340px]) and the director board's ranked grid is the ONLY grid usage that didn't pass `fluid` (browse.tsx and services.tsx grids do; home/detail rails correctly keep fixed widths). Tailwind's grid-cols-* are minmax(0,1fr), so the wider card just overflowed its cell and painted over the neighbour: measured 72px overlap at 1024px (cell 228 vs card 300), 69px at 390px mobile (cards cut off at the viewport edge because body is overflow-x: clip), 34px at 2xl, and 8px even at 1440. Fix: `fluid` on the board's StillCard — cell==card==0px overlap verified at 390/1024/1440.
+- JUNK-LINK DEAD-END (found while reproducing): "#/director/525?r=…" (query junk inside the hash) parses num() → 0 → the view fetched person/0 → 404 → ErrorNote whose "Try again" could never succeed. This is exactly the broken page a user hits from a truncated share link. New LostLink (bits.tsx): EmptyNote "This link lost its reel" + cyan Back-to-browse CTA. Wired into all five id-driven views — DirectorView, PersonView, CollectionView, DetailView (+ sub-queries idle via id-conditional paths so nothing fetches /0), PlayerView — each guard sits AFTER all hooks (rules-of-hooks) and every query path is now `id ? path : null` (enabled:false), verified zero /0 requests via performance entries. Guards verified for #/person/525?junk, #/movie/155?junk, #/collection/999999999?junk, #/director/525?x=broken.
+- RANK BADGES: the old numerals were 30px white/25 text floating over imagery — unreadable on bright stills, accidental-looking. Now a compact chip badge (h-7, rounded-lg, bg-black/75 + border-white/15 + backdrop-blur, tabular 12.5px bold; hover → border-primary/70 text-primary) anchored at each card's top-left corner; min-w handles 2-digit ranks.
+- STAT STRIP: the old divide-x in a 2×2 mobile grid drew a stray left-edge divider on row 2 and `first:pl-0` misaligned row 2's left padding. Rebuilt as a hairline grid: container gap-px bg-white/[0.06] + solid bg-surface-2 cells + overflow-hidden rounded border — real dividers between every cell at any column count, uniform padding, same visual weight.
+- QA (agent-browser): all 8 director pages render OK with 0px overlap at 390/1024/1440; mobile board shows both columns fully (previously cut); stat strip clean 2×2 and 1×4; signature/identity/long-tail untouched and verified; regression sweep person/collection/detail×2/player×2 all OK; junk-link guards verified on 4 route shapes; console clean (no errors/hydration/key warnings) across the whole sweep; LostLink screenshot-verified.
+- One hydration-mismatch console line appeared mid-session but could not be reproduced across 11 fresh deep-link loads with cleared consoles — correlates with an HMR rebuild landing mid-load (Fast Refresh active in dev.log at that moment); treated as a dev-only artifact, noted honestly here.
+- lint clean, tsc 0 errors.
+- Files: src/components/reelivo/views/director.tsx (fluid + badges + stat strip + guard), views/person.tsx, views/collection.tsx, views/detail.tsx, views/player.tsx (guards + idle paths), bits.tsx (LostLink).
+
+Stage Summary:
+- The directors tab is layout-broken no more: the ranked board is a true responsive grid at every width, rank badges are legible by design, and the stat strip's hairline grid is correct on mobile.
+- Any truncated/junk shared link now lands on a designed, honest dead-end with a way back — on all five id-driven routes, with zero phantom fetches.
+- Known/unchanged: TMDB US "Prime Video" logo baked-in text (real data); PAT still needs revocation (ghp_5WRf…).
+- Next-phase recommendations: PIN-draft-lost-on-Save nit; kids-mode content shaping; history stats strip; keyboard rail navigation; per-service deep links (#/services/{id}).

@@ -281,3 +281,27 @@ export function BackToTop() {
     </button>
   );
 }
+
+/* Designed dead-end for routes whose id parsed to nothing (#/director/ with a
+ * truncated or junk suffix in a shared link). Paired with id-conditional query
+ * paths in the views, so nothing 404s behind the scenes — the page just says
+ * honestly that the link is incomplete and offers the way back in. */
+export function LostLink() {
+  return (
+    <div className="mx-auto max-w-2xl px-4 pt-32">
+      <EmptyNote title="This link lost its reel">
+        The address is missing a title or person id — it may have been cut off
+        when it was shared. The whole catalogue is one tap away.
+      </EmptyNote>
+      <div className="mt-6 text-center">
+        <a
+          href="#/"
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-5 text-[13px] font-bold text-black transition-all duration-150 hover:-translate-y-px hover:shadow-[0_10px_28px_rgba(0,168,225,0.35)] active:translate-y-0"
+        >
+          <Clapperboard className="size-4" aria-hidden />
+          Back to browse
+        </a>
+      </div>
+    </div>
+  );
+}

@@ -7,7 +7,7 @@ import { isProgressMessage, playerUrl } from "@/lib/player";
 import { progressKey, useReelivo, type SavedItem } from "@/lib/store";
 import { poster, runtime as fmtRuntime, score, still, titleOf, yearOf } from "@/lib/format";
 import type { MovieDetail, Paged, MediaItem, TvDetail, TvSeason } from "@/lib/tmdb-types";
-import { Img } from "../bits";
+import { Img, LostLink } from "../bits";
 import { toSavedItem } from "../media";
 import { AdBreakGate } from "../ad-break";
 
@@ -29,7 +29,7 @@ export function PlayerView({
   episode?: number;
 }) {
   const stale = useDetailStaleTime();
-  const detail = useTmdb<Detail>(`${type}/${id}`, {}, stale);
+  const detail = useTmdb<Detail>(id ? `${type}/${id}` : null, {}, stale);
 
   const s = season ?? 1;
   const e = episode ?? 1;
@@ -141,8 +141,8 @@ export function PlayerView({
   const progressEntry = useReelivo((g) => g.progress[progressKey(id, type, s, e)]);
 
   /* ------------------------- up next / keep watching ------------------------ */
-  const seasonQ = useTmdb<TvSeason>(type === "tv" ? `tv/${id}/season/${s}` : null, {}, stale);
-  const recsQ = useTmdb<Paged<MediaItem>>(`${type}/${id}/recommendations`);
+  const seasonQ = useTmdb<TvSeason>(type === "tv" && id ? `tv/${id}/season/${s}` : null, {}, stale);
+  const recsQ = useTmdb<Paged<MediaItem>>(id ? `${type}/${id}/recommendations` : null);
 
   const episodes = seasonQ.data?.episodes ?? [];
   const nextInSeason = useMemo(() => {
@@ -178,6 +178,9 @@ export function PlayerView({
         .slice(0, 8),
     [recsQ.data]
   );
+
+  /* Truncated/junk play links parse to id 0 — designed dead-end, idle queries. */
+  if (!id) return <LostLink />;
 
   return (
     <div className="flex min-h-screen flex-col bg-black">

@@ -9,7 +9,7 @@ import type {
   PersonCredit,
   PersonDetail,
 } from "@/lib/tmdb-types";
-import { ErrorNote, Img, SectionHead, StillSkeleton } from "../bits";
+import { ErrorNote, Img, LostLink, SectionHead, StillSkeleton } from "../bits";
 import { Rail } from "../media";
 
 /* ------------------------------- known for -------------------------------- */
@@ -148,8 +148,12 @@ const DEPARTMENT_LABELS: Record<string, string> = {
 
 export function PersonView({ id, rank }: { id: number; rank?: number }) {
   const stale = useDetailStaleTime();
-  const person = useTmdb<PersonDetail>(`person/${id}`, {}, stale);
-  const credits = useTmdb<CombinedCredits>(`person/${id}/combined_credits`, {}, stale);
+  const person = useTmdb<PersonDetail>(id ? `person/${id}` : null, {}, stale);
+  const credits = useTmdb<CombinedCredits>(
+    id ? `person/${id}/combined_credits` : null,
+    {},
+    stale
+  );
 
   useEffect(() => {
     if (person.data) document.title = `${person.data.name} — Reelivo`;
@@ -230,6 +234,9 @@ export function PersonView({ id, rank }: { id: number; rank?: number }) {
       }))
       .sort((a, b) => b.credits.length - a.credits.length);
   }, [credits.data]);
+
+  /* Truncated/junk share links parse to id 0 — designed dead-end, idle queries. */
+  if (!id) return <LostLink />;
 
   if (person.isPending) {
     return (
