@@ -50,6 +50,15 @@ export const metadata: Metadata = {
       "A daily where-to-watch guide. Find something worth your evening, see where it streams, and press play — free.",
     images: ["/api/og"],
   },
+  /* HilltopAds site-ownership verification (user's dashboard tag) — rendered
+   * server-side into <head> via the metadata API instead of a raw <meta> in
+   * the JSX tree. */
+  verification: {
+    other: {
+      d1f2c246731e6378bb11d6b9963814bccf076248:
+        "d1f2c246731e6378bb11d6b9963814bccf076248",
+    },
+  },
 };
 
 export const viewport: Viewport = {
@@ -66,8 +75,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-
-      <meta name="d1f2c246731e6378bb11d6b9963814bccf076248" content="d1f2c246731e6378bb11d6b9963814bccf076248" />
       <body
         suppressHydrationWarning
         className={`${manrope.variable} ${inter.variable} font-sans antialiased bg-background text-foreground`}
