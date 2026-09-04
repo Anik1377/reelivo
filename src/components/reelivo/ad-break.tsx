@@ -10,12 +10,13 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { adTestMode, markAdBreakShown, shouldShowAdBreak } from "@/lib/ads";
+import { adTestFlavor, adTestMode, markAdBreakShown, shouldShowAdBreak, HILLTOP_VAST_ZONE } from "@/lib/ads";
 import { fireBeacon, parseVast, pickAd, pickMediaFile, type VastLinearAd } from "@/lib/vast";
 
 /* Pre-roll VIDEO ad — a real VAST linear ad played in the frame before the
- * stream takes over (lib/vast.ts parses the HilltopAds zone tag, fetched via
- * our /api/ads/vast proxy).
+ * stream takes over (lib/vast.ts parses the HilltopAds zone tag, requested
+ * DIRECTLY from this browser — that is the request HilltopAds counts — with
+ * the same-origin proxy as a fallback; see lib/ads.ts).
  *
  * Behaviour is the honest-streaming version of a pre-roll:
  *  - starts MUTED (our rubric promises "no surprise audio"; one tap unmutes)
@@ -23,8 +24,8 @@ import { fireBeacon, parseVast, pickAd, pickMediaFile, type VastLinearAd } from 
  *  - impression / start / quartile / progress beacons fire as the ad runs
  *  - tapping the ad opens the advertiser in a new tab (VAST ClickThrough)
  *  - no fill / fetch failure / broken media → the stream starts immediately
- *  - requested on EVERY stream start (no frequency cap — see lib/ads.ts);
- *    a no-fill reply from the zone means the stream starts instantly
+ *  - requested at most once per AD_BREAK_EVERY_MS per device (?adtest
+ *    bypasses the cap); a no-fill reply means the stream starts instantly
  *  - kids profiles never see it
  */
 
@@ -92,30 +93,67 @@ function VastAdBreak({ onDone, onExit }: { onDone: () => void; onExit?: () => vo
     [fireOnce, finish]
   );
 
-  /* load the zone tag once and pick one ad from the pod */
+  /* load the zone tag once and pick one ad from the pod.
+   * The tag is requested from THIS browser first — that request (visitor's
+   * real IP, referer, client hints) is what HilltopAds counts as traffic;
+   * copies fetched by our server are discarded by their anti-fraud filters.
+   * The same-origin proxy only takes over if the direct cross-origin read
+   * fails (rare: CORS-stripping middleboxes, very old browsers). A no-fill
+   * (empty VAST) is a NORMAL answer — it must NOT trigger the fallback,
+   * or we would double-request the zone for every unsold impression. */
   useEffect(() => {
     let dead = false;
     const ctrl = new AbortController();
     const bail = setTimeout(() => ctrl.abort(), 8000);
-    (async () => {
+
+    const fetchText = async (url: string): Promise<string | null> => {
       try {
-        const res = await fetch(adTestMode() ? "/api/ads/vast?mock=1" : "/api/ads/vast", {
-          signal: ctrl.signal,
-        });
-        const xml = await res.text();
-        const chosen = pickAd(parseVast(xml));
-        const media = chosen ? pickMediaFile(chosen) : null;
-        if (dead) return;
-        if (!chosen || !media) {
-          finish(); // no fill → straight to the stream, no fake wait
-          return;
-        }
-        adRef.current = chosen;
-        setAd(chosen);
-        setMediaUrl(media.url);
+        const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+        return await res.text();
       } catch {
-        if (!dead) finish(); // zone unreachable → never block playback
+        return null; // network/CORS/abort — caller decides the fallback
       }
+    };
+
+    (async () => {
+      /* flavor is only meaningful when ?adtest is present — a NORMAL play
+       * (no param) must always go to the live zone, never the mock */
+      const flavor: "mock" | "live" | null = adTestMode() ? adTestFlavor() : null;
+      let xml: string | null;
+      let source: string;
+      if (flavor === "mock") {
+        source = "mock";
+        xml = await fetchText("/api/ads/vast?mock=1");
+      } else {
+        source = "browser→zone (counted)";
+        xml = await fetchText(HILLTOP_VAST_ZONE);
+        if (xml == null) {
+          source = "proxy (fallback)";
+          xml = await fetchText("/api/ads/vast");
+        }
+      }
+      if (dead) return;
+      if (xml == null) {
+        console.debug("[ads] no tag source reachable — starting the stream");
+        finish(); // zone unreachable → never block playback
+        return;
+      }
+      const ads = parseVast(xml);
+      const chosen = pickAd(ads);
+      const media = chosen ? pickMediaFile(chosen) : null;
+      console.debug(
+        `[ads] tag via ${source}: ${ads.length} ad(s) parsed, ` +
+          (chosen
+            ? `playing "${chosen.title || chosen.id || "untitled"}"`
+            : "no fill — stream starts instantly")
+      );
+      if (!chosen || !media) {
+        finish(); // no fill → straight to the stream, no fake wait
+        return;
+      }
+      adRef.current = chosen;
+      setAd(chosen);
+      setMediaUrl(media.url);
     })();
     return () => {
       dead = true;

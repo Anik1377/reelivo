@@ -1,11 +1,14 @@
-/* Server-side proxy for the HilltopAds VAST video zone.
+/* Server-side FALLBACK proxy for the HilltopAds VAST video zone.
  *
- * Why a proxy: the zone replies differently per client (plain curl gets a
- * 404, real browsers get the XML), so the pre-roll player asks our own API,
- * which fetches the tag with browser-like headers. A no-fill reply —
- * HilltopAds serves an EMPTY <VAST/> or a 404 when a request isn't sold — is
- * normalized to an empty <VAST/>; the client parser then yields zero ads and
- * the stream starts instantly. The zone is never allowed to block playback.
+ * The PRIMARY path is a direct fetch from the visitor's browser (see
+ * lib/ads.ts): HilltopAds only counts traffic from real end-user clients —
+ * a request from this server carries a datacenter IP and no real referer,
+ * which their anti-fraud filters discard. This proxy exists for the rare
+ * browser where the cross-origin read fails; it forwards the visitor's own
+ * Origin/Referer so even fallback traffic is attributed to the site, and
+ * normalizes a no-fill reply (empty <VAST/> or 404) to an empty <VAST/> —
+ * the client parser then yields zero ads and the stream starts instantly.
+ * The zone is never allowed to block playback.
  *
  * Rotate the zone without code edits via HILLTOPADS_VAST_URL in .env.
  * `GET /api/ads/vast?mock=1` (dev servers only) returns a bundled sample VAST
@@ -17,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 const ZONE_URL =
   process.env.HILLTOPADS_VAST_URL ??
-  "https://windy-imagination.com/dLm.FKzzdbG/NVv/Z/G/Ub/kedmm9auQZwUfl-k/PoTtcNzqN/zDk/zQMYTtcyt/Naz/Mi3rOVTIMsyoMDQe";
+  "https://windy-imagination.com/d/mVFHzud.GzNsvSZCGkUI/zezmX9PulZAUPlqkzPnTnclziNyzdkOzOM/TpcNtBNgzFMj3TOzTwMLy/M/QP";
 
 const EMPTY_VAST =
   '<?xml version="1.0" encoding="UTF-8"?>\n<VAST version="3.0" xmlns="http://www.w3.org/2001/XMLSchema"></VAST>';
@@ -100,6 +103,28 @@ function xml(body: string): Response {
   });
 }
 
+/* HilltopAds ties traffic to the registered website (915848), so the referer
+ * we present must be the REAL site — forwarded from the visitor's own
+ * request headers (correct on every deployment: production, previews,
+ * localhost) instead of a hardcoded guess. */
+function refererFrom(req: Request): string | undefined {
+  const candidates = [
+    req.headers.get("referer"),
+    req.headers.get("origin"),
+    process.env.NEXT_PUBLIC_SITE_URL,
+  ];
+  for (const cand of candidates) {
+    if (!cand) continue;
+    try {
+      const u = new URL(cand);
+      if (u.protocol === "https:" || u.protocol === "http:") return `${u.origin}/`;
+    } catch {
+      /* not a URL — try the next candidate */
+    }
+  }
+  return undefined;
+}
+
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
@@ -110,24 +135,32 @@ export async function GET(req: Request): Promise<Response> {
 
   try {
     if (cache && Date.now() - cache.at < CACHE_MS) return xml(cache.body);
+    const referer = refererFrom(req);
     const res = await fetch(ZONE_URL, {
       cache: "no-store",
       signal: AbortSignal.timeout(6000),
       headers: {
-        // the zone 404s plain clients — present as a browser coming from us
+        // present as a browser coming from the visitor's own site
         "user-agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         accept: "*/*",
-        referer: "https://reelivo.app/",
+        ...(referer ? { referer } : {}),
       },
     });
     const body = (await res.text()).trim();
     // 404 / HTML error page / anything non-VAST → normalized no-fill
-    const out = res.ok && /<VAST[\s>]/i.test(body) ? body : EMPTY_VAST;
+    const looksVast = /<VAST[\s>]/i.test(body);
+    const out = res.ok && looksVast ? body : EMPTY_VAST;
     cache = { at: Date.now(), body: out };
+    // observability: this line in the server log proves the fallback path
+    // reached the zone (primary browser-direct requests never show up here)
+    console.log(
+      `[ads] fallback proxy → zone status=${res.status} bytes=${body.length} vast=${looksVast ? "ok" : "no"} referer=${referer ?? "none"}`
+    );
     return xml(out);
   } catch {
     // timeout / network failure → no fill; never make the ad block the stream
+    console.log("[ads] fallback proxy → zone failed (timeout/network) — empty VAST");
     return xml(EMPTY_VAST);
   }
 }
