@@ -1,23 +1,28 @@
 "use client";
 
-/* Reelivo opening intro — "The Name Is the Logo" (v3, slick black).
+/* Reelivo opening intro — v4, "The Title Card" (nostalgic logo reveal).
  *
- * Direction from the user: the logo is ONLY "reelivo" with the dot in the
- * brand colour — no icons, no marks, no shapes. So the reveal is pure
- * typography on slick black:
+ * Direction from the user: the intro is a LOGO REVEAL and the music should
+ * feel NOSTALGIC / emotional. The logo is only "reelivo." with the stop in
+ * the brand cyan — so the reveal treats it like a film title card:
  *
- *   0.35s  the letters of "reelivo" rise out of a baseline mask one by one
- *          (custom staggered lift, 90ms apart)
- *   1.65s  the cyan STOP drops from above and squashes onto the baseline
- *   2.08s  IMPACT — bloom flash + a ring ripple radiating from the dot,
- *          exactly on the score's thump
- *   2.35s  a light bar sweeps across the finished wordmark
- *   2.55s  tagline + hairline follow
- *   3.65s  the curtain scales away, revealing the app
+ *   0.45s  the finished logo fades up out of blur into focus, as ONE piece
+ *          (re-title) — the way an old film title resolves on screen
+ *   1.50s  a soft light bar sheens across the letterforms (re-sheen on a
+ *          background-clip:text copy) — right as it passes the stop, the
+ *          dot keeps the light…
+ *   2.05s  IGNITE — the cyan stop glows (re-ignite) with a warm bloom
+ *          (re-flash) and a gentle ring ripple (re-ring) on the score's
+ *          heartbeat thump
+ *   2.65s  tagline + hairline follow
+ *   3.75s  the curtain scales away, revealing the app
  *
- * The score is fully SYNTHESISED WebAudio (zero audio assets) and beat-mapped
- * to the visuals: quiet hum under the letters → sub swell + riser → impact →
- * braam → shimmer under the shine sweep.
+ * THE SCORE — nostalgic, warm, emotional (fully synthesised WebAudio, zero
+ * assets): vinyl crackle + tape hiss bed, an Amaj9 felt-pad with tape
+ * warble, a soft felt-piano motif (A4 → E5 → C#5), a breathing sub swell,
+ * and when the dot ignites a soft heartbeat thump into a major bloom chord
+ * and one lone suspended 9th under the tagline. No braam, no hard impact —
+ * sentiment instead of spectacle.
  *
  * Hard rules baked in:
  *  - Skippable: Skip button, Escape, or tap anywhere once audio is unlocked.
@@ -31,16 +36,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Volume2 } from "lucide-react";
 import { usePrefersReducedMotion } from "../bits";
 
-const FULL_MS = 3650; // choreography length before the curtain exit
+const FULL_MS = 3750; // choreography length before the curtain exit
 const LEAVE_MS = 500; // curtain length
 const REDUCED_MS = 750; // reduced-motion total
 
 /* beat map (ms) — keep in sync with scheduleCue() */
-const LETTERS = { at: 350, step: 90, dur: 620 };
-const DOT = { at: 1650, dur: 460 };
-const IMPACT = 2080; // bloom + ring, on the score's thump
-const TAGLINE = { at: 2550, dur: 700 };
-const HAIRLINE = { at: 2700, dur: 1200 };
+const LOGO = { at: 450, dur: 950 };
+const SWEEP = { at: 1500, dur: 1000 };
+const IGNITE = 2050; // dot glow + bloom, on the score's heartbeat
+const RING = 2250;
+const TAGLINE = { at: 2650, dur: 700 };
+const HAIRLINE = { at: 2800, dur: 1200 };
 
 /* ----------------------------- the score ------------------------------ */
 /* Everything is scheduled relative to ctx.currentTime; exponential ramps
@@ -55,16 +61,65 @@ function noiseBuffer(ctx: AudioContext, seconds: number): AudioBuffer {
   return buf;
 }
 
+/* a soft "felt piano" pluck: sine carrier FM'd by its own octave, fast
+ * attack, long felt-soft decay; dries to the master and sends to the delay */
+function feltPiano(
+  ctx: AudioContext,
+  out: GainNode,
+  delaySend: GainNode,
+  freq: number,
+  at: number,
+  peak: number,
+  decay = 1.7,
+): AudioScheduledSourceNode[] {
+  const carrier = ctx.createOscillator();
+  carrier.type = "sine";
+  carrier.frequency.value = freq;
+
+  const mod = ctx.createOscillator();
+  mod.type = "sine";
+  mod.frequency.value = freq * 2;
+  const modGain = ctx.createGain();
+  modGain.gain.setValueAtTime(freq * 1.3, at);
+  modGain.gain.exponentialRampToValueAtTime(1, at + 0.14);
+  mod.connect(modGain).connect(carrier.frequency);
+
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, at);
+  env.gain.linearRampToValueAtTime(peak, at + 0.012);
+  env.gain.exponentialRampToValueAtTime(0.0001, at + decay);
+
+  const dry = ctx.createGain();
+  dry.gain.value = 0.8;
+  const wet = ctx.createGain();
+  wet.gain.value = 0.55;
+  carrier.connect(env);
+  env.connect(dry).connect(out);
+  env.connect(wet).connect(delaySend);
+
+  carrier.start(at);
+  mod.start(at);
+  carrier.stop(at + decay + 0.1);
+  mod.stop(at + 0.3);
+  return [carrier, mod];
+}
+
 function scheduleCue(ctx: AudioContext, full: boolean): CueStop {
   const t0 = ctx.currentTime + 0.04;
   const sources: AudioScheduledSourceNode[] = [];
 
+  /* warm master: gentle lowpass for tape softness → polite compression */
   const master = ctx.createGain();
-  master.gain.value = 0.85;
+  master.gain.value = 0.8;
+  const warm = ctx.createBiquadFilter();
+  warm.type = "lowpass";
+  warm.frequency.value = 5400;
+  warm.Q.value = 0.4;
   const comp = ctx.createDynamicsCompressor();
-  comp.threshold.value = -16;
-  comp.ratio.value = 5;
-  master.connect(comp);
+  comp.threshold.value = -20;
+  comp.ratio.value = 4;
+  master.connect(warm);
+  warm.connect(comp);
   comp.connect(ctx.destination);
 
   const start = (node: AudioScheduledSourceNode, at?: number) => {
@@ -72,144 +127,181 @@ function scheduleCue(ctx: AudioContext, full: boolean): CueStop {
     node.start(at ?? t0);
   };
 
-  if (full) {
-    /* 1 — quiet projector hum + air bed while the letters rise */
-    const hum = ctx.createOscillator();
-    hum.type = "sine";
-    hum.frequency.value = 46;
-    const humGain = ctx.createGain();
-    humGain.gain.setValueAtTime(0.0001, t0 + 0.1);
-    humGain.gain.linearRampToValueAtTime(0.11, t0 + 0.6);
-    humGain.gain.linearRampToValueAtTime(0.0001, t0 + 1.6);
-    hum.connect(humGain).connect(master);
-    start(hum);
-    hum.stop(t0 + 1.7);
-
-    const air = ctx.createBufferSource();
-    air.buffer = noiseBuffer(ctx, 1.7);
-    const airLp = ctx.createBiquadFilter();
-    airLp.type = "lowpass";
-    airLp.frequency.value = 520;
-    const airGain = ctx.createGain();
-    airGain.gain.setValueAtTime(0.0001, t0 + 0.1);
-    airGain.gain.linearRampToValueAtTime(0.03, t0 + 0.7);
-    airGain.gain.linearRampToValueAtTime(0.0001, t0 + 1.6);
-    air.connect(airLp).connect(airGain).connect(master);
-    start(air);
-    air.stop(t0 + 1.7);
-
-    /* 2 — sub-bass swell as the wordmark completes (tension rising) */
-    const sub = ctx.createOscillator();
-    sub.type = "sine";
-    sub.frequency.setValueAtTime(38, t0 + 0.55);
-    sub.frequency.exponentialRampToValueAtTime(74, t0 + 1.95);
-    const subGain = ctx.createGain();
-    subGain.gain.setValueAtTime(0.0001, t0 + 0.55);
-    subGain.gain.linearRampToValueAtTime(0.5, t0 + 1.9);
-    subGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.25);
-    sub.connect(subGain).connect(master);
-    start(sub);
-    sub.stop(t0 + 2.35);
-
-    /* 3 — filtered-noise riser sweeping up into the impact */
-    const riser = ctx.createBufferSource();
-    riser.buffer = noiseBuffer(ctx, 1.4);
-    const bp = ctx.createBiquadFilter();
-    bp.type = "bandpass";
-    bp.Q.value = 1.1;
-    bp.frequency.setValueAtTime(260, t0 + 0.75);
-    bp.frequency.exponentialRampToValueAtTime(3400, t0 + 1.98);
-    const rGain = ctx.createGain();
-    rGain.gain.setValueAtTime(0.0001, t0 + 0.75);
-    rGain.gain.linearRampToValueAtTime(0.2, t0 + 1.96);
-    rGain.gain.linearRampToValueAtTime(0.0001, t0 + 2.04);
-    riser.connect(bp).connect(rGain).connect(master);
-    start(riser);
-    riser.stop(t0 + 2.1);
-  }
-
-  /* 4 — THE IMPACT (sub thump + noise transient) — beat-mapped to the cyan
-   * stop squashing onto the baseline */
-  const t1 = t0 + (full ? 2.04 : 0.05);
-  const thump = ctx.createOscillator();
-  thump.type = "sine";
-  thump.frequency.setValueAtTime(150, t1);
-  thump.frequency.exponentialRampToValueAtTime(44, t1 + 0.45);
-  const thumpGain = ctx.createGain();
-  thumpGain.gain.setValueAtTime(0.85, t1);
-  thumpGain.gain.exponentialRampToValueAtTime(0.0001, t1 + 0.8);
-  thump.connect(thumpGain).connect(master);
-  thump.start(t1);
-  sources.push(thump);
-  thump.stop(t1 + 0.9);
-
-  const burst = ctx.createBufferSource();
-  burst.buffer = noiseBuffer(ctx, 0.6);
-  const lp = ctx.createBiquadFilter();
-  lp.type = "lowpass";
-  lp.frequency.value = 700;
-  const bGain = ctx.createGain();
-  bGain.gain.setValueAtTime(0.5, t1);
-  bGain.gain.exponentialRampToValueAtTime(0.0001, t1 + 0.55);
-  burst.connect(lp).connect(bGain).connect(master);
-  burst.start(t1);
-  sources.push(burst);
-  burst.stop(t1 + 0.65);
-
-  /* 5 — the braam: a detuned low saw dyad that blooms after the hit */
-  const braamGain = ctx.createGain();
-  braamGain.gain.setValueAtTime(0.0001, t1);
-  braamGain.gain.linearRampToValueAtTime(0.3, t1 + 0.08);
-  braamGain.gain.exponentialRampToValueAtTime(0.0001, t1 + 2.0);
-  const braamLp = ctx.createBiquadFilter();
-  braamLp.type = "lowpass";
-  braamLp.frequency.value = 470;
-  braamGain.connect(braamLp).connect(master);
-  for (const f of [55, 110.7]) {
-    const saw = ctx.createOscillator();
-    saw.type = "sawtooth";
-    saw.frequency.value = f;
-    saw.connect(braamGain);
-    saw.start(t1);
-    sources.push(saw);
-    saw.stop(t1 + 2.1);
-  }
-
-  /* 6 — shimmer: two airy triangles into a feedback delay (the "premium" tail)
-   * timed with the wordmark shine sweep */
+  /* feedback delay — the nostalgic echo everything soft falls into */
+  const delaySend = ctx.createGain();
+  delaySend.gain.value = 1;
   const delay = ctx.createDelay(1);
-  delay.delayTime.value = 0.27;
+  delay.delayTime.value = 0.34;
   const fb = ctx.createGain();
-  fb.gain.value = 0.34;
+  fb.gain.value = 0.38;
   const fbLp = ctx.createBiquadFilter();
   fbLp.type = "lowpass";
-  fbLp.frequency.value = 3200;
+  fbLp.frequency.value = 2400;
+  const delayOut = ctx.createGain();
+  delayOut.gain.value = 0.5;
+  delaySend.connect(delay);
   delay.connect(fb).connect(fbLp).connect(delay);
-  delay.connect(master);
-  const tShimmer = t1 + (full ? 0.45 : 0.25);
+  delay.connect(delayOut).connect(master);
+
+  if (full) {
+    /* 1 — vinyl crackle + tape hiss bed under everything */
+    const bed = 3.8;
+    const hiss = ctx.createBufferSource();
+    hiss.buffer = noiseBuffer(ctx, bed);
+    const hissLp = ctx.createBiquadFilter();
+    hissLp.type = "lowpass";
+    hissLp.frequency.value = 6000;
+    const hissGain = ctx.createGain();
+    hissGain.gain.setValueAtTime(0.0001, t0);
+    hissGain.gain.linearRampToValueAtTime(0.012, t0 + 0.5);
+    hissGain.gain.linearRampToValueAtTime(0.0001, t0 + bed);
+    hiss.connect(hissLp).connect(hissGain).connect(master);
+    start(hiss);
+    hiss.stop(t0 + bed);
+
+    for (let i = 0; i < 9; i++) {
+      const at = t0 + 0.15 + Math.random() * 3.2;
+      const pop = ctx.createBufferSource();
+      pop.buffer = noiseBuffer(ctx, 0.03);
+      const popBp = ctx.createBiquadFilter();
+      popBp.type = "bandpass";
+      popBp.frequency.value = 1100 + Math.random() * 1500;
+      popBp.Q.value = 2.2;
+      const popGain = ctx.createGain();
+      const g = 0.02 + Math.random() * 0.03;
+      popGain.gain.setValueAtTime(g, at);
+      popGain.gain.exponentialRampToValueAtTime(0.0001, at + 0.025);
+      pop.connect(popBp).connect(popGain).connect(master);
+      start(pop, at);
+      pop.stop(at + 0.04);
+    }
+
+    /* 2 — Amaj9 felt pad with tape warble (the emotional bed) */
+    const padBus = ctx.createGain();
+    padBus.gain.setValueAtTime(0.0001, t0 + 0.35);
+    padBus.gain.linearRampToValueAtTime(0.9, t0 + 1.9);
+    padBus.gain.setValueAtTime(0.9, t0 + 3.2);
+    padBus.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.85);
+    const padLp = ctx.createBiquadFilter();
+    padLp.type = "lowpass";
+    padLp.frequency.setValueAtTime(750, t0 + 0.35);
+    padLp.frequency.linearRampToValueAtTime(1500, t0 + 2.9);
+    padBus.connect(padLp).connect(master);
+
+    const wobble = ctx.createOscillator();
+    wobble.type = "sine";
+    wobble.frequency.value = 0.55;
+    const wobbleDepth = ctx.createGain();
+    wobbleDepth.gain.value = 3.5; // cents — gentle tape pitch drift
+    wobble.connect(wobbleDepth);
+    start(wobble);
+    wobble.stop(t0 + 4);
+
+    /* Amaj9 voicing: A3 · B3 · C#4 · E4 (+ A2 root), two detuned voices each */
+    const padNotes: Array<[number, number]> = [
+      [110.0, 0.07],
+      [220.0, 0.05],
+      [246.94, 0.045],
+      [277.18, 0.045],
+      [329.63, 0.045],
+    ];
+    for (const [f, g] of padNotes) {
+      for (const cents of [-4, 4]) {
+        const osc = ctx.createOscillator();
+        osc.type = "triangle";
+        osc.frequency.value = f;
+        osc.detune.value = cents;
+        wobbleDepth.connect(osc.detune);
+        const og = ctx.createGain();
+        og.gain.value = g;
+        osc.connect(og).connect(padBus);
+        osc.start(t0 + 0.35);
+        sources.push(osc);
+        osc.stop(t0 + 4);
+      }
+    }
+
+    /* 3 — felt-piano motif under the reveal: A4 → E5 → C#5 */
+    feltPiano(ctx, master, delaySend, 440.0, t0 + 0.6, 0.16).forEach((s) => sources.push(s));
+    feltPiano(ctx, master, delaySend, 659.25, t0 + 1.05, 0.13).forEach((s) => sources.push(s));
+    feltPiano(ctx, master, delaySend, 554.37, t0 + 1.5, 0.13).forEach((s) => sources.push(s));
+
+    /* 4 — soft airy swell under the sheen sweep (a breath, not a riser) */
+    const whoosh = ctx.createBufferSource();
+    whoosh.buffer = noiseBuffer(ctx, 0.9);
+    const whooshBp = ctx.createBiquadFilter();
+    whooshBp.type = "bandpass";
+    whooshBp.Q.value = 0.9;
+    whooshBp.frequency.setValueAtTime(700, t0 + 1.45);
+    whooshBp.frequency.linearRampToValueAtTime(2200, t0 + 2.05);
+    const whooshGain = ctx.createGain();
+    whooshGain.gain.setValueAtTime(0.0001, t0 + 1.45);
+    whooshGain.gain.linearRampToValueAtTime(0.07, t0 + 1.9);
+    whooshGain.gain.linearRampToValueAtTime(0.0001, t0 + 2.1);
+    whoosh.connect(whooshBp).connect(whooshGain).connect(master);
+    start(whoosh, t0 + 1.45);
+    whoosh.stop(t0 + 2.15);
+
+    /* 5 — sub swell breathing up to the ignition */
+    const sub = ctx.createOscillator();
+    sub.type = "sine";
+    sub.frequency.setValueAtTime(40, t0 + 0.5);
+    sub.frequency.exponentialRampToValueAtTime(64, t0 + 2.0);
+    const subGain = ctx.createGain();
+    subGain.gain.setValueAtTime(0.0001, t0 + 0.5);
+    subGain.gain.linearRampToValueAtTime(0.2, t0 + 1.95);
+    subGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.4);
+    sub.connect(subGain).connect(master);
+    start(sub);
+    sub.stop(t0 + 2.5);
+  }
+
+  /* 6 — THE IGNITION: a soft heartbeat thump under the dot's glow —
+   * sentiment, not spectacle */
+  const t1 = t0 + (full ? 2.01 : 0.05);
+  const heart = ctx.createOscillator();
+  heart.type = "sine";
+  heart.frequency.setValueAtTime(92, t1);
+  heart.frequency.exponentialRampToValueAtTime(46, t1 + 0.5);
+  const heartGain = ctx.createGain();
+  heartGain.gain.setValueAtTime(0.55, t1);
+  heartGain.gain.exponentialRampToValueAtTime(0.0001, t1 + 0.9);
+  heart.connect(heartGain).connect(master);
+  heart.start(t1);
+  sources.push(heart);
+  heart.stop(t1 + 1.0);
+
+  const breath = ctx.createBufferSource();
+  breath.buffer = noiseBuffer(ctx, 0.5);
+  const breathLp = ctx.createBiquadFilter();
+  breathLp.type = "lowpass";
+  breathLp.frequency.value = 380;
+  const breathGain = ctx.createGain();
+  breathGain.gain.setValueAtTime(0.14, t1);
+  breathGain.gain.exponentialRampToValueAtTime(0.0001, t1 + 0.4);
+  breath.connect(breathLp).connect(breathGain).connect(master);
+  breath.start(t1);
+  sources.push(breath);
+  breath.stop(t1 + 0.5);
+
+  /* 7 — major bloom chord as the glow settles (Amaj: A4 · C#5 · E5) */
+  const bloomAt = t1 + (full ? 0.14 : 0.15);
   [
-    { f: 659.25, g: 0.06, at: tShimmer },
-    { f: 987.77, g: 0.045, at: tShimmer + 0.22 },
-  ].forEach(({ f, g, at }) => {
-    const tri = ctx.createOscillator();
-    tri.type = "triangle";
-    tri.frequency.value = f;
-    const gNode = ctx.createGain();
-    gNode.gain.setValueAtTime(0.0001, at);
-    gNode.gain.linearRampToValueAtTime(g, at + 0.4);
-    gNode.gain.exponentialRampToValueAtTime(0.0001, at + 2.2);
-    tri.connect(gNode);
-    gNode.connect(master);
-    gNode.connect(delay);
-    tri.start(at);
-    sources.push(tri);
-    tri.stop(at + 2.3);
+    [440.0, 0.0, 0.09],
+    [554.37, 0.018, 0.08],
+    [659.25, 0.036, 0.085],
+  ].forEach(([f, dt, g]) => {
+    feltPiano(ctx, master, delaySend, f, bloomAt + dt, g, 2.0).forEach((s) => sources.push(s));
   });
 
-  /* 7 — polite master fade-out */
-  const fadeAt = t0 + (full ? 3.45 : 1.4);
-  master.gain.setValueAtTime(0.85, fadeAt);
-  master.gain.linearRampToValueAtTime(0, fadeAt + 0.55);
+  /* 8 — one lone suspended 9th under the tagline, left hanging in the echo */
+  const tailAt = full ? t0 + 2.7 : t1 + 0.7;
+  feltPiano(ctx, master, delaySend, 493.88, tailAt, 0.085, 2.3).forEach((s) => sources.push(s));
+
+  /* 9 — polite master fade-out */
+  const fadeAt = t0 + (full ? 3.5 : 1.5);
+  master.gain.setValueAtTime(0.8, fadeAt);
+  master.gain.linearRampToValueAtTime(0, fadeAt + 0.6);
 
   return () => {
     try {
@@ -229,9 +321,7 @@ function scheduleCue(ctx: AudioContext, full: boolean): CueStop {
   };
 }
 
-/* --------------------- the wordmark, letter by letter ------------------ */
-/* Each letter rises out of its own overflow-hidden mask; the cyan stop then
- * drops, squashes onto the baseline, and radiates the impact ring. */
+/* ------------------- the logo, revealed as one piece ------------------- */
 
 const WORDMARK = "reelivo";
 
@@ -243,62 +333,76 @@ function IntroWordmark({ reduced }: { reduced: boolean }) {
       data-testid="intro-wordmark"
       className="display relative inline-flex items-baseline text-[19vw] font-extrabold leading-none tracking-tight text-white sm:text-[88px] md:text-[112px]"
     >
-      {WORDMARK.split("").map((ch, i) => (
-        <span key={`${ch}-${i}`} aria-hidden="true" className="inline-block overflow-hidden pb-[0.06em]">
+      {/* film-title fade into focus — the whole logo at once. Letters rest
+       * slightly muted so the sheen band has contrast, then settle to white */}
+      <span
+        className={
+          reduced
+            ? "leading-none"
+            : "leading-none motion-safe:animate-[re-title_0.95s_cubic-bezier(0.2,0.7,0.2,1)_both,re-base_0.9s_ease-out_both]"
+        }
+        style={
+          reduced
+            ? undefined
+            : {
+                animationDelay: `${LOGO.at}ms, 1900ms`,
+                animationDuration: `${LOGO.dur}ms, 900ms`,
+              }
+        }
+      >
+        {WORDMARK}
+        {/* the stop — brand cyan, ignites after the sheen passes it */}
+        <span className="relative leading-none text-primary">
+          {!reduced && (
+            <>
+              {/* warm bloom at the dot — negative half-size margins centre it
+               * on the glyph's INK centre (canvas-measured for Manrope 800:
+               * ink centre = left 0.16em, bottom 0.37em measured from the INLINE CONTENT AREA (font ascent+descent = 153px box, not the 112px line box — inline abs children position against it); margins survive
+               * transform animations) */}
+              <span aria-hidden="true" className="pointer-events-none absolute bottom-[0.37em] left-[0.16em] size-0">
+                <span className="absolute left-0 top-0">
+                  <span
+                    className="-ml-[0.5em] -mt-[0.5em] block size-[1em] rounded-full bg-[radial-gradient(circle,rgba(0,168,225,0.5),rgba(0,168,225,0.16)_45%,transparent_70%)] motion-safe:animate-[re-flash_0.9s_ease-out_both]"
+                    style={{ animationDelay: `${IGNITE}ms`, animationDuration: "900ms" }}
+                  />
+                </span>
+              </span>
+              {/* gentle ring ripple */}
+              <span aria-hidden="true" className="pointer-events-none absolute bottom-[0.37em] left-[0.16em] size-0">
+                <span className="absolute left-0 top-0">
+                  <span
+                    className="-ml-[0.25em] -mt-[0.25em] block size-[0.5em] rounded-full border-[0.024em] border-primary/80 motion-safe:animate-[re-ring_1.1s_cubic-bezier(0.2,0.6,0.3,1)_both]"
+                    style={{ animationDelay: `${RING}ms`, animationDuration: "1100ms" }}
+                  />
+                </span>
+              </span>
+            </>
+          )}
           <span
             className={
               reduced
                 ? "inline-block"
-                : "inline-block motion-safe:animate-[re-lift_0.62s_cubic-bezier(0.16,0.84,0.28,1)_both]"
+                : "inline-block motion-safe:animate-[re-ignite_1s_ease-out_both]"
             }
-            style={
-              reduced
-                ? undefined
-                : { animationDelay: `${LETTERS.at + i * LETTERS.step}ms`, animationDuration: `${LETTERS.dur}ms` }
-            }
+            style={reduced ? undefined : { animationDelay: `${IGNITE}ms`, animationDuration: "1000ms" }}
           >
-            {ch}
+            .
           </span>
-        </span>
-      ))}
-
-      {/* THE STOP — brand cyan, drops and lands on the beat */}
-      <span aria-hidden="true" className="relative inline-block text-primary">
-        {/* ring ripple from the landing point: size-0 anchor at the glyph's
-         * visual centre; the ripple centres itself with negative half-size
-         * margins (margins survive transform animations untouched) */}
-        {!reduced && (
-          <span className="pointer-events-none absolute bottom-[0.2em] left-[0.12em] size-0">
-            <span className="absolute left-0 top-0">
-              <span
-                className="-ml-[0.25em] -mt-[0.25em] block size-[0.5em] rounded-full border-[0.026em] border-primary motion-safe:animate-[re-ring_0.9s_cubic-bezier(0.2,0.6,0.3,1)_both]"
-                style={{ animationDelay: `${IMPACT}ms`, animationDuration: "900ms" }}
-              />
-            </span>
-          </span>
-        )}
-        {/* impact bloom — same anchor pattern */}
-        {!reduced && (
-          <span className="pointer-events-none absolute bottom-[0.2em] left-[0.12em] size-0">
-            <span className="absolute left-0 top-0">
-              <span
-                className="-ml-[0.45em] -mt-[0.45em] block size-[0.9em] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.75),rgba(0,168,225,0.3)_45%,transparent_70%)] motion-safe:animate-[re-flash_0.7s_ease-out_both]"
-                style={{ animationDelay: `${IMPACT}ms`, animationDuration: "700ms" }}
-              />
-            </span>
-          </span>
-        )}
-        <span
-          className={
-            reduced
-              ? "inline-block"
-              : "inline-block drop-shadow-[0_0_0.22em_rgba(0,168,225,0.55)] motion-safe:animate-[re-dot_0.46s_cubic-bezier(0.3,0.6,0.3,1)_both]"
-          }
-          style={reduced ? undefined : { animationDelay: `${DOT.at}ms`, animationDuration: `${DOT.dur}ms` }}
-        >
-          .
         </span>
       </span>
+
+      {/* light bar sheening across the letterforms — a transparent-text copy
+       * of the logo with background-clip:text; the gradient's position is
+       * animated so the highlight travels L→R through the glyphs */}
+      {!reduced && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(105deg,transparent_44%,rgba(255,255,255,0.95)_50%,transparent_56%)] bg-[length:260%_100%] bg-clip-text leading-none text-transparent motion-safe:animate-[re-sheen_1s_ease-in-out_both]"
+          style={{ animationDelay: `${SWEEP.at}ms`, animationDuration: `${SWEEP.dur}ms` }}
+        >
+          {WORDMARK}.
+        </span>
+      )}
     </div>
   );
 }
@@ -437,7 +541,7 @@ export function IntroLoader({ onDone }: { onDone: () => void }) {
       <div aria-hidden className="re-grain pointer-events-none absolute inset-0 opacity-[0.045] mix-blend-screen" />
 
       <div className="relative flex flex-col items-center px-6">
-        {/* breathing halo behind the wordmark (parent centres, child scales) */}
+        {/* breathing halo behind the logo (parent centres, child scales) */}
         <div aria-hidden className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
           <div className="size-[min(130vw,560px)] rounded-full bg-primary/[0.07] blur-3xl motion-safe:animate-[re-glow_2.8s_ease-in-out_infinite]" />
         </div>

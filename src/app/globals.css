@@ -411,20 +411,6 @@ label {
     transform: scale(1.12);
   }
 }
-@keyframes re-pop {
-  0% {
-    opacity: 0;
-    transform: scale(0.6);
-  }
-  60% {
-    opacity: 1;
-    transform: scale(1.06);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
 @keyframes re-rise {
   0% {
     opacity: 0;
@@ -460,72 +446,90 @@ label {
     transform 500ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ---------------- intro v3 — "the name is the logo" ---------------- */
-/* Slick-black cinematic wordmark reveal: the letters of "reelivo" rise out
- * of a baseline mask one by one, the cyan stop drops and lands with an
- * impact bloom + ring ripple, a light sweeps the wordmark, curtain. No
- * icons, no marks — the name with its brand-coloured stop IS the logo.
- * All decorative; reduced-motion renders static. */
+/* ------- intro v4 — nostalgic film-title logo reveal ------- */
+/* The finished logo — "reelivo" with its brand-coloured stop — is revealed
+ * as ONE piece, the way a film title card fades up: soft blur-rise into
+ * focus, a light bar sheens across the letterforms (background-clip:text
+ * copy), then the cyan dot ignites with a warm glow bloom and a gentle ring
+ * ripple. No icons, no marks — the name IS the logo. All decorative;
+ * reduced-motion renders static. */
 
-/* each letter rises out of an overflow-hidden baseline mask */
-@keyframes re-lift {
+/* whole-logo title-card fade-up */
+@keyframes re-title {
   0% {
     opacity: 0;
-    transform: translateY(108%) rotate(4deg);
+    transform: translateY(0.14em) scale(0.985);
+    filter: blur(14px);
   }
-  55% {
+  60% {
     opacity: 1;
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) rotate(0deg);
-  }
-}
-/* the cyan stop drops from above and squashes on landing */
-@keyframes re-dot {
-  0% {
-    opacity: 0;
-    transform: translateY(-0.62em);
-  }
-  45% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  62% {
-    transform: translateY(0) scale(1.28, 0.6);
-  }
-  80% {
-    transform: translateY(0) scale(0.94, 1.08);
   }
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
+    filter: blur(0);
   }
 }
-/* ring ripple radiating from the dot's landing point */
+/* the letterforms rest slightly muted so the sheen band has contrast, then
+ * settle to full white as the light finishes passing (syncs with ignite) */
+@keyframes re-base {
+  0% {
+    color: #c6d0d9;
+  }
+  100% {
+    color: #ffffff;
+  }
+}
+/* light bar travelling across the letterforms (drives a bg-clip:text copy;
+ * background-position is percentage-of-image, so 280% width ⇒ sweep) */
+@keyframes re-sheen {
+  0% {
+    background-position: 130% 0;
+  }
+  100% {
+    background-position: -130% 0;
+  }
+}
+/* the cyan dot ignites: glow blooms then settles to a warm resting halo */
+@keyframes re-ignite {
+  0% {
+    filter: drop-shadow(0 0 0em rgba(0, 168, 225, 0));
+  }
+  30% {
+    filter: drop-shadow(0 0 0.38em rgba(0, 168, 225, 0.95));
+  }
+  100% {
+    filter: drop-shadow(0 0 0.2em rgba(0, 168, 225, 0.55));
+  }
+}
+/* soft ring ripple radiating from the dot — invisible while waiting (fill
+ * both holds the 0% frame before the delay, so 0% MUST be transparent) */
 @keyframes re-ring {
   0% {
-    opacity: 0.85;
+    opacity: 0;
     transform: scale(0.25);
+  }
+  18% {
+    opacity: 0.85;
   }
   100% {
     opacity: 0;
     transform: scale(3.4);
   }
 }
-/* impact bloom (shared with v2's flash language) */
+/* ignition bloom at the dot — warm, cyan-tinted, never a harsh white flash */
 @keyframes re-flash {
   0% {
     opacity: 0;
-    transform: scale(0.6);
+    transform: scale(0.55);
   }
-  18% {
-    opacity: 0.9;
+  22% {
+    opacity: 0.7;
     transform: scale(1);
   }
   100% {
     opacity: 0;
-    transform: scale(1.35);
+    transform: scale(1.4);
   }
 }
 /* 35mm grain flicker (steps() so it jitters like real film) */
