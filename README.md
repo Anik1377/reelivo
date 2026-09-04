@@ -19,7 +19,7 @@ Find something worth your evening, see where it streams, and press play — free
 - Where-to-watch provider breakdown per region (subscriptions / rent / buy)
 - Cast & crew with per-person deep links, seasons & episodes ("Airs this week" badges), facts sidebar
 - TMDB member reviews with **Top / Newest sorting** and paginated loading
-- Free in-page playback via the Videasy player (swappable source layer in `src/lib/player.ts`), next-episode auto-play, progress postMessage sync
+- Free in-page playback via a multi-server embed engine (swappable source layer in `src/lib/player.ts`), next-episode auto-play, progress postMessage sync
 
 ### Personal
 - **Watchlist with named lists** — file titles into custom folders ("Weekend marathon", "Prestige TV"…), rename, dissolve; save-to-list quick-pick from anywhere
@@ -42,7 +42,7 @@ Find something worth your evening, see where it streams, and press play — free
 | State      | TanStack Query (server) + Zustand (client, persisted)       |
 | Database   | Prisma ORM on SQLite                                        |
 | Data       | TMDB API v3 — server-proxied (`/api/tmdb/*`), path allowlist + in-memory cache |
-| Playback   | Videasy embed (primary), source layer kept swappable        |
+| Playback   | Multi-server embed engine — VidLink / VidFast / VidSrc / 2Embed, swappable |
 
 ## Getting started
 

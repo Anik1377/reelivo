@@ -1,9 +1,9 @@
 /**
  * Playback sources — a multi-server engine, swappable by design.
  *
- * Videasy (the original single source) is down for good (verified 2025: the
- * domain no longer resolves), so playback now routes through FOUR independent
- * providers, ordered by user experience — fewest ads first:
+ * The original single-source provider shut down (domain no longer resolves),
+ * so playback now routes through FOUR independent providers, ordered by user
+ * experience — fewest ads first:
  *
  *   1. VidLink  vidlink.pro    clean player, themable, posts progress events
  *   2. VidFast  vidfast.pro    slick autoplay player, minimal interruptions
@@ -155,8 +155,8 @@ export function parseProgressMessage(data: unknown): ParsedProgress | null {
     return null;
   }
 
-  // Legacy Videasy dialect (kept for any provider that mimics it):
-  // { type: "movie"|"tv"|"anime", timestamp, duration, … }
+  // Legacy generic dialect (kept for any provider that mimics the old
+  // single-source shape): { type: "movie"|"tv"|"anime", timestamp, duration, … }
   if (
     (d.type === "movie" || d.type === "tv" || d.type === "anime") &&
     typeof d.duration === "number" &&

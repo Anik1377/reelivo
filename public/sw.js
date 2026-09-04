@@ -9,7 +9,9 @@
  * The worker is registered only in production (see app.tsx) so dev HMR is untouched.
  */
 
-const VERSION = "reelivo-v2";
+/* v3: purges any cached SPA shell from the pre-https-canonical era (v2 shells
+ * could hold old HTML whose OG tags resolved against http://). */
+const VERSION = "reelivo-v3";
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 

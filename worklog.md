@@ -926,3 +926,20 @@ Stage Summary:
 - App is now Vercel-deployment-safe: every emitted URL is https, security headers ship, all APIs are serverless-safe, and the one serverless-incompatible feature (watch-party realtime) degrades honestly instead of hanging.
 - Files touched: src/components/reelivo/views/player.tsx (hook + sheet + wiring).
 - Unresolved/next: user checklist (outside repo): ① redeploy on Vercel with this commit (auto if GitHub-connected), ② Vercel dashboard → Domains → confirm "Valid Configuration" (auto TLS for vercel.app AND custom domains), ③ old shared http links: re-scrape via Facebook Sharing Debugger, ④ optional: host the party service on Railway/Render if watch parties are wanted in production; PAT still exposed — revoke.
+
+---
+Task ID: 37
+Agent: Z.ai Code (main)
+Task: User: "site still shows that it is not secure. I think the problem is with Open Graph or videasy — remove every hint of videasy."
+
+Work Log:
+- VIDEASY PURGE (shipped code): README.md ×2 (features blurb + tech-stack table → multi-server embed engine: VidLink/VidFast/VidSrc/2Embed), src/lib/player.ts header comment ("original single-source provider shut down") + "Legacy Videasy dialect" → "Legacy generic dialect", player.tsx progress comment. `grep -ri videasy src/ public/ README.md` → ZERO matches. (worklog.md historical entries kept — internal audit trail, not shipped.)
+- https hardening layer 5: layout.tsx metadataBase now coerces NEXT_PUBLIC_SITE_URL http→https — if the Vercel dashboard env var was ever set with http://, it could silently re-break every OG URL; impossible now.
+- STALE-CACHE purge: sw.js VERSION reelivo-v2 → reelivo-v3 with comment. Rationale: v2's shell cache could hold pre-fix HTML (old http:// OG tags) for returning/PWA visitors; the version bump makes activate() delete every v2 cache on next visit. (Navigation strategy is network-first, so this mainly protects offline/fallback paths — but it guarantees no visitor keeps old-shell HTML.)
+- Verified: OG for simulated public host emits https (og:url + og:image), localhost stays http by design; app healthy; lint + tsc clean.
+- IMPORTANT context for the user's "still Not secure": the flag in a browser address bar can ONLY come from the serving origin (http page or bad cert) — never from OG tags or a brand name. On Vercel with current code the page is served https with a valid cert, so the remaining possibilities are: (a) deployment predates the fix — must include commit e7eac07+; (b) looking at a CACHED Messenger/WhatsApp preview — needs a Sharing-Debugger re-scrape; (c) typing/viewing an http:// or non-Vercel URL directly; (d) custom-domain DNS misconfig → cert not issued. OG tags influence LINK PREVIEWS, not the address-bar flag.
+
+Stage Summary:
+- Shipped code is now 100% Videasy-free and 100% https-canonical (5 layers: request metadataBase, layout fallback, NEXT_PUBLIC_SITE_URL coercion, share-button upgrade, SW cache purge).
+- Files touched: README.md, src/lib/player.ts, src/components/reelivo/views/player.tsx (comment), src/app/layout.tsx, public/sw.js.
+- Next: user must confirm the Vercel deployment actually contains these commits (check deployment creation time vs push time, or Vercel dashboard → Deployments → latest commit sha); re-scrape one link in Facebook Sharing Debugger and compare — that's the definitive test of what crawlers see now.

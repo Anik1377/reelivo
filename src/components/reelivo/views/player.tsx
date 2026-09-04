@@ -155,7 +155,8 @@ export function PlayerView({
 
   /* ------------------------- progress + mini-stream ------------------------ */
   /* Every progress postMessage (VidLink's MEDIA_DATA dialect or the legacy
-   * Videasy shape — see parseProgressMessage) feeds two throttled consumers:
+   * generic provider shape — see parseProgressMessage) feeds two throttled
+   * consumers:
    * the per-profile progress store (~8s, as before) and the device-level
    * mini-stream card (~5s, "keep watching" from anywhere). pct is computed
    * the same way saveProgress does — progress/duration, guarded against
