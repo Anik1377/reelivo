@@ -454,10 +454,190 @@ label {
 /* the whole-curtain exit: scale up slightly while fading to reveal the app */
 .intro-out {
   opacity: 0;
-  transform: scale(1.045);
+  transform: scale(1.05);
   transition:
-    opacity 440ms cubic-bezier(0.4, 0, 0.2, 1),
-    transform 440ms cubic-bezier(0.4, 0, 0.2, 1);
+    opacity 500ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 500ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---------------- intro v2 — "the premiere" ---------------- */
+/* Cinematic logo reveal: projector beam → mark assembly → wordmark cascade
+ * → shine sweep → curtain. All decorative; reduced-motion renders static. */
+
+/* SVG parts need their own transform box to animate around themselves */
+.re-svg-part {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+/* projector beam: a hairline igniting from the center outward, then handing
+ * the light off to the tile as it dissolves */
+@keyframes re-beam {
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  75% {
+    transform: scaleX(1);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+/* tile outline: a pen drawing the rounded square (pathLength=100) */
+@keyframes re-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+/* tile fill: a hard left→right wipe via clip-path */
+@keyframes re-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+/* film perforations thread themselves into place */
+@keyframes re-perf {
+  0% {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(1.5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* the play triangle glides home with a spring overshoot */
+@keyframes re-tri {
+  0% {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  55% {
+    opacity: 1;
+    transform: translateX(2.5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+/* a lens glint crossing inside the tile while it assembles */
+@keyframes re-glint {
+  from {
+    transform: translateX(-34px) rotate(18deg);
+  }
+  to {
+    transform: translateX(84px) rotate(18deg);
+  }
+}
+/* impact bloom when the triangle lands */
+@keyframes re-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  18% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+/* each wordmark letter: blur-rise with a tiny settle */
+@keyframes re-letter {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.88);
+    filter: blur(10px);
+  }
+  60% {
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+/* the terminal triangle popping on the beat */
+@keyframes re-term {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.45);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+/* soft light bar sweeping across the wordmark */
+@keyframes re-shine {
+  from {
+    transform: translateX(-130%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(320%) skewX(-18deg);
+  }
+}
+/* 35mm grain flicker (steps() so it jitters like real film) */
+@keyframes re-grain {
+  0% {
+    background-position:
+      12% 8%,
+      0 0;
+  }
+  20% {
+    background-position:
+      74% 32%,
+      0 0;
+  }
+  40% {
+    background-position:
+      38% 66%,
+      0 0;
+  }
+  60% {
+    background-position:
+      86% 54%,
+      0 0;
+  }
+  80% {
+    background-position:
+      22% 88%,
+      0 0;
+  }
+  100% {
+    background-position:
+      58% 14%,
+      0 0;
+  }
+}
+.re-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 240px 240px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .re-grain {
+    animation: re-grain 0.9s steps(1) infinite;
+  }
 }
 
 /* player watermark — slow legible breathing, never distracting */
