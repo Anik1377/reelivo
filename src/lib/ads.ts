@@ -29,12 +29,12 @@ export const sponsorLinkProps: AnchorHTMLAttributes<HTMLAnchorElement> | null =
     ? { href: HILLTOP_DIRECT_LINK, target: "_blank", rel: "sponsored noopener noreferrer" }
     : null;
 
-/* Pre-roll cadence — 0 means the pre-roll is requested on EVERY stream start
- * (user request: "it must always show ads"). To re-introduce a frequency cap
- * later, set a millisecond window here, e.g. 10 * 60 * 1000 = one ad per
- * device per 10 minutes. Whether an ad actually PLAYS is still up to
- * HilltopAds inventory: a no-fill reply = the stream starts instantly. */
-export const AD_BREAK_EVERY_MS = 0;
+/* Pre-roll cadence — a millisecond window between pre-rolls (one per device).
+ * 2025: the user asked for FEWER ads — 10 minutes means bingeing a season
+ * shows at most one break every ten minutes instead of one per stream start.
+ * Whether an ad actually PLAYS is still up to HilltopAds inventory: a no-fill
+ * reply = the stream starts instantly. 0 would restore every-play breaks. */
+export const AD_BREAK_EVERY_MS = 10 * 60 * 1000;
 
 const CAP_KEY = "reelivo-adbreak-at";
 

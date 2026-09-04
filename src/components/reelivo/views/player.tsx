@@ -8,12 +8,21 @@ import {
   Loader2,
   Play,
   SendHorizonal,
+  Sparkles,
+  TriangleAlert,
   Users,
 } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
 import { toast } from "sonner";
 import { hrefFor, navigate, useDetailStaleTime, useTmdb } from "@/lib/hooks";
-import { isProgressMessage, playerUrl } from "@/lib/player";
+import {
+  DEFAULT_SERVER,
+  parseProgressMessage,
+  playerUrl,
+  serverById,
+  STREAM_SERVERS,
+  type ServerId,
+} from "@/lib/player";
 import { progressKey, useReelivo, type SavedItem } from "@/lib/store";
 import { poster, runtime as fmtRuntime, score, still, titleOf, yearOf } from "@/lib/format";
 import type { MovieDetail, Paged, MediaItem, TvDetail, TvSeason } from "@/lib/tmdb-types";
@@ -29,6 +38,13 @@ import {
 } from "@/components/ui/sheet";
 
 type Detail = MovieDetail | TvDetail;
+
+/** Dot colours for the ad-load indicator — more dots = heavier ad load. */
+const AD_LOAD_DOT: Record<1 | 2 | 3, string> = {
+  1: "bg-emerald-400",
+  2: "bg-amber-400",
+  3: "bg-rose-400",
+};
 
 function labelOf(d: Detail): string {
   return "title" in d ? d.title : d.name;
@@ -50,7 +66,6 @@ export function PlayerView({
 
   const s = season ?? 1;
   const e = episode ?? 1;
-  const savedProgress = useReelivo((g) => g.getProgress(id, type, s, e));
   const saveProgress = useReelivo((g) => g.saveProgress);
   const setLastEpisode = useReelivo((g) => g.setLastEpisode);
   const pushRecent = useReelivo((g) => g.pushRecent);
@@ -96,18 +111,54 @@ export function PlayerView({
     };
   }, [detail.data, type, s, e]);
 
-  const iframeSrc = useMemo(() => {
-    const resume = savedProgress?.timestamp ?? 0;
-    return playerUrl({ type, id, season: s, episode: e, resumeSeconds: resume });
-    // savedProgress.timestamp intentionally read at mount only — the param resumes once
-  }, [type, id, s, e]);
+  /* --------------------------- playback server --------------------------- */
+  /* Device-level preference (persists across profiles); null = engine default.
+   * Switching servers remounts the frame — instant one-click failover when a
+   * provider is down, with our progress tracking continuing throughout. */
+  const streamServer = useReelivo((g) => g.streamServer);
+  const setStreamServer = useReelivo((g) => g.setStreamServer);
+  const serverId: ServerId =
+    (STREAM_SERVERS.find((sv) => sv.id === streamServer)?.id ?? DEFAULT_SERVER) as ServerId;
+  const activeServer = serverById(serverId);
+  const serverIdx = STREAM_SERVERS.findIndex((sv) => sv.id === serverId);
+  const nextServer = STREAM_SERVERS[(serverIdx + 1) % STREAM_SERVERS.length];
+
+  /* Stuck-frame detector: cross-origin iframes always fire onLoad once the
+   * document responds — a dead/blocked provider never does. If nothing has
+   * loaded ~14s in, surface an honest one-click failover hint. Both flags are
+   * keyed to iframeSrc so navigating to another episode/server resets them
+   * without any state-reset effects. */
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const [stuckSrc, setStuckSrc] = useState<string | null>(null);
+  const frameIsLoaded = loadedSrc === iframeSrc;
+  const frameIsStuck = stuckSrc === iframeSrc;
+  useEffect(() => {
+    if (frameIsLoaded) return;
+    const t = setTimeout(() => setStuckSrc(iframeSrc), 14000);
+    return () => clearTimeout(t);
+  }, [iframeSrc, frameIsLoaded]);
+
+  const switchServer = (id: ServerId) => {
+    if (id === serverId) return;
+    setStreamServer(id);
+    toast(`Switched to ${serverById(id).name}`, {
+      description: serverById(id).blurb,
+    });
+  };
+
+  const iframeSrc = useMemo(
+    () => playerUrl({ type, id, season: s, episode: e }, serverId),
+    [type, id, s, e, serverId]
+  );
 
   /* ------------------------- progress + mini-stream ------------------------ */
-  /* Every Videasy progress postMessage feeds two throttled consumers: the
-   * per-profile progress store (~8s, as before) and the device-level
+  /* Every progress postMessage (VidLink's MEDIA_DATA dialect or the legacy
+   * Videasy shape — see parseProgressMessage) feeds two throttled consumers:
+   * the per-profile progress store (~8s, as before) and the device-level
    * mini-stream card (~5s, "keep watching" from anywhere). pct is computed
    * the same way saveProgress does — progress/duration, guarded against
-   * 0/NaN (setMiniStream clamps 0..1 again). */
+   * 0/NaN (setMiniStream clamps 0..1 again). Servers that post nothing
+   * (VidFast/VidSrc/2Embed) simply skip this — the picker says so. */
   const lastSave = useRef(0);
   const lastMini = useRef(0);
   /** Latest progress message, captured UNthrottled — flushed to the mini
@@ -128,14 +179,13 @@ export function PlayerView({
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (!isProgressMessage(event.data)) return;
+      const msg = parseProgressMessage(event.data);
+      if (!msg) return;
       const now = Date.now();
       if (detail.data) {
         const d = detail.data;
-        // isProgressMessage guarantees duration > 0 and a numeric timestamp;
-        // coalesce for the type system anyway
-        const dur = typeof event.data.duration === "number" ? event.data.duration : 0;
-        const ts = typeof event.data.timestamp === "number" ? event.data.timestamp : 0;
+        const dur = msg.duration;
+        const ts = msg.timestamp;
         const stillUrl = still(
           (type === "tv" ? episodeStillRef.current : null) ?? d.backdrop_path,
           "w780"
@@ -181,8 +231,8 @@ export function PlayerView({
           season: type === "tv" ? s : undefined,
           episode: type === "tv" ? e : undefined,
           episodeName: undefined,
-          timestamp: event.data.timestamp ?? 0,
-          duration: event.data.duration ?? 0,
+          timestamp: msg.timestamp,
+          duration: msg.duration,
         });
       }
     };
@@ -377,6 +427,7 @@ export function PlayerView({
                   allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
                   allowFullScreen
                   referrerPolicy="origin"
+                  onLoad={() => setLoadedSrc(iframeSrc)}
                   className="h-full w-full border-0"
                 />
                 {/* preloads underneath the break; never on kids profiles */}
@@ -391,10 +442,88 @@ export function PlayerView({
             )}
           </div>
 
+          {/* stuck? honest failover hint — only while the frame never loaded */}
+          {frameIsStuck && !frameIsLoaded && (
+            <div className="mt-3 flex flex-wrap items-center gap-2.5 rounded-xl border border-amber-400/25 bg-amber-400/[0.06] px-4 py-3 text-[13px] text-amber-100/90">
+              <TriangleAlert className="size-4 shrink-0 text-amber-300" aria-hidden />
+              <p className="min-w-0 flex-1 leading-relaxed">
+                Still connecting…{" "}
+                <span className="font-semibold text-white">{activeServer.name}</span> may be
+                down or blocked. Switching servers takes one click.
+              </p>
+              <button
+                type="button"
+                onClick={() => switchServer(nextServer.id)}
+                className="shrink-0 rounded-lg bg-amber-300/90 px-3 py-1.5 text-xs font-semibold text-black transition-all duration-150 hover:bg-amber-300 active:scale-95"
+              >
+                Try {nextServer.name}
+              </button>
+            </div>
+          )}
+
+          {/* server picker — ordered fewest-ads first, dots = ad load */}
+          <section aria-label="Stream servers" className="mt-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="kicker text-white/40">Servers</p>
+              <p className="truncate text-[11px] text-white/35">
+                {activeServer.progress
+                  ? "progress tracked automatically here"
+                  : "no progress tracking — VidLink has it"}
+              </p>
+            </div>
+            <div
+              className="no-scrollbar mt-2 flex gap-2 overflow-x-auto pb-1"
+              role="group"
+              aria-label="Choose a playback server"
+            >
+              {STREAM_SERVERS.map((sv) => {
+                const activeSv = sv.id === serverId;
+                return (
+                  <button
+                    key={sv.id}
+                    type="button"
+                    onClick={() => switchServer(sv.id)}
+                    aria-pressed={activeSv}
+                    aria-label={`${sv.name} — ${sv.blurb}`}
+                    className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-[13px] transition-all duration-150 active:scale-[0.97] ${
+                      activeSv
+                        ? "border-primary/70 bg-primary/15 font-semibold text-white ring-1 ring-primary/30"
+                        : "border-white/10 bg-white/[0.04] text-white/65 hover:border-white/25 hover:text-white"
+                    }`}
+                  >
+                    {sv.id === DEFAULT_SERVER && !streamServer && (
+                      <Sparkles
+                        className={`size-3.5 ${activeSv ? "text-primary" : "text-primary/70"}`}
+                        aria-hidden
+                      />
+                    )}
+                    <span>{sv.name}</span>
+                    <span className="flex items-center gap-0.5" aria-hidden>
+                      {[0, 1, 2].map((i) => (
+                        <span
+                          key={i}
+                          className={`size-1.5 rounded-full ${
+                            i < sv.adLoad ? AD_LOAD_DOT[sv.adLoad] : "bg-white/15"
+                          }`}
+                        />
+                      ))}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 text-[11.5px] leading-relaxed text-white/35">
+              <span className="text-white/55">
+                {activeServer.name} · {activeServer.host}
+              </span>{" "}
+              — {activeServer.blurb}. Dots = ad load; fewer is better.
+            </p>
+          </section>
+
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white/40">
             <p>
-              Free · ad-supported stream via Videasy. If nothing plays, the source may be
-              resting — try another title or come back soon.
+              Free · ad-supported streams from independent providers. If one misbehaves, the
+              picker above is your friend.
             </p>
             {progressEntry && progressEntry.duration > 0 && (
               <p className="tabular text-primary/80">

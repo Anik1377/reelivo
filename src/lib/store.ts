@@ -165,6 +165,10 @@ interface ReelivoState {
   /* device-level prefs (shared across profiles) */
   region: string;
   serviceFocus: number | null;
+  /** Chosen playback server (lib/player STREAM_SERVERS id) — device-level so
+   * every profile on this device gets the same preferred source. Null = the
+   * engine default (VidLink). Persisted. */
+  streamServer: string | null;
   /** Ephemeral, device-level (NOT per-profile, NOT persisted) — see MiniStream. */
   miniStream: MiniStream | null;
 
@@ -205,6 +209,7 @@ interface ReelivoState {
   removeReminder: (id: number, type: MediaType) => void;
   setRegion: (r: string) => void;
   setServiceFocus: (id: number | null) => void;
+  setStreamServer: (id: string | null) => void;
   setMiniStream: (s: MiniStream) => void;
   clearMiniStream: () => void;
 }
@@ -253,6 +258,7 @@ export const useReelivo = create<ReelivoState>()(
 
       region: "US",
       serviceFocus: null,
+      streamServer: null,
       miniStream: null,
 
       /* ------------------------------ profiles ------------------------------ */
@@ -523,6 +529,7 @@ export const useReelivo = create<ReelivoState>()(
         }),
 
       setRegion: (region) => set({ region }),
+      setStreamServer: (streamServer) => set({ streamServer }),
 
       setServiceFocus: (serviceFocus) => set({ serviceFocus }),
 
@@ -565,6 +572,7 @@ export const useReelivo = create<ReelivoState>()(
         reminders: s.reminders,
         region: s.region,
         serviceFocus: s.serviceFocus,
+        streamServer: s.streamServer,
         /* `gate`, `unlocked` and `miniStream` are ephemeral and must never
          * survive a reload (miniStream is device-level by design, see its
          * interface note). */
