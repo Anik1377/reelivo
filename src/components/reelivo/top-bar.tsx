@@ -6,6 +6,7 @@ import { hrefFor, navigate, type Route } from "@/lib/hooks";
 import { useReelivo } from "@/lib/store";
 import { useMounted } from "./media";
 import { Kbd } from "./bits";
+import { ReelivoWordmark } from "./brand/logo";
 import { ProfileAvatar, openProfileEditor, openProfilePin } from "./profiles";
 import { ReminderCenter } from "./reminder-center";
 import {
@@ -92,7 +93,7 @@ export function TopBar({
             className="display flex items-center self-stretch text-[20px] leading-none tracking-tight text-white"
             aria-label="Reelivo home"
           >
-            reelivo<span className="text-primary">.</span>
+            <ReelivoWordmark />
           </a>
           <nav aria-label="Primary" className="hidden items-center gap-6 md:flex">
             {links.map((l) => (

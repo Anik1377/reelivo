@@ -9,9 +9,10 @@
  * The worker is registered only in production (see app.tsx) so dev HMR is untouched.
  */
 
-/* v3: purges any cached SPA shell from the pre-https-canonical era (v2 shells
- * could hold old HTML whose OG tags resolved against http://). */
-const VERSION = "reelivo-v3";
+/* v4: re-precache the rebranded icon set (new play-tile artwork replaced the
+ * old PNGs at the same paths — a version bump is the only way the old cached
+ * copies purge for returning users). */
+const VERSION = "reelivo-v4";
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 

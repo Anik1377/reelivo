@@ -5,6 +5,7 @@ import { LockKeyhole, Pencil, Plus, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { useReelivo, type Profile } from "@/lib/store";
 import { isFourDigits, pinHash } from "@/lib/pin";
+import { ReelivoMark } from "./brand/logo";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -832,6 +833,7 @@ export function ProfileGate() {
       </div>
 
       <div className="relative flex min-h-full flex-col items-center justify-center px-6 py-16">
+        <ReelivoMark className="mb-5 size-12 drop-shadow-[0_6px_30px_rgba(0,168,225,0.45)]" />
         <p className="kicker text-primary">Reelivo profiles</p>
         <h1 className="display mt-2 text-center text-[clamp(30px,5.5vw,52px)] leading-[1.05] text-white text-balance">
           {onboarding ? "Make yourself at home." : manage ? "Manage profiles" : "Who's watching?"}

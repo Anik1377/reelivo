@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { adTestFlavor, adTestMode, HILLTOP_VAST_ZONE } from "@/lib/ads";
 import { fireBeacon, parseVast, pickAd, pickMediaFile, type VastLinearAd } from "@/lib/vast";
+import { ReelivoWordmark } from "./brand/logo";
 
 /* Pre-roll + mid-roll VIDEO ads — real VAST linear ads played over the frame
  * (lib/vast.ts parses the HilltopAds zone tag, requested DIRECTLY from this
@@ -335,9 +336,9 @@ function VastAdBreak({
       />
       <span
         aria-hidden
-        className="display pointer-events-none absolute bottom-3 right-4 z-10 text-sm text-white/[0.06]"
+        className="display pointer-events-none absolute bottom-3 right-4 z-10 text-sm opacity-[0.08]"
       >
-        reelivo<span className="text-primary/30">.</span>
+        <ReelivoWordmark />
       </span>
 
       {phase === "loading" && (
@@ -397,9 +398,7 @@ function VastAdBreak({
                 aria-label="Back to title page"
               >
                 <ChevronLeft className="size-4" aria-hidden />
-                <span className="display text-[15px] tracking-tight">
-                  reelivo<span className="text-primary">.</span>
-                </span>
+                <ReelivoWordmark className="text-[15px]" />
               </button>
             )}
             <span className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.22em] text-primary-foreground shadow-[0_2px_14px_rgba(0,168,225,0.45)]">

@@ -13,6 +13,7 @@ import { BackToTop, ScrollProgress } from "./bits";
 import { InstallPill } from "./install-pill";
 import { MiniPlayer } from "./mini-player";
 import { FolderPicker } from "./folder-picker";
+import { IntroLoader } from "./brand/intro-loader";
 import { ProfileGate, ProfileEditor, ProfilePinDialog } from "./profiles";
 import { HomeView } from "./views/home";
 import { BrowseView } from "./views/browse";
@@ -122,8 +123,28 @@ export function ReelivoApp() {
   const miniStream = useReelivo((s) => s.miniStream);
   const gateMode = deriveGate(gate, profiles, activeProfileId, unlocked);
 
+  /* Opening intro — once per browser session, never over playback.
+   * Decided in a layout effect so the curtain is up before the first paint
+   * (no flash of the app underneath). SSR renders `false`, so server and
+   * client hydrate identically. ?adtest sessions (QA) skip the intro so ad
+   * flows stay fast to exercise. */
+  const [introVisible, setIntroVisible] = useState(false);
+  useIsoLayoutEffect(() => {
+    try {
+      if (sessionStorage.getItem("reelivo-intro-shown") === "1") return;
+      sessionStorage.setItem("reelivo-intro-shown", "1");
+    } catch {
+      /* storage unavailable — still show once per page load */
+    }
+    if (new URLSearchParams(window.location.search).has("adtest")) return;
+    /* never delay a playback deep-link (pre-roll already waits there) */
+    if (/#\/(movie|tv)\/\d+\/play(\/|$)/.test(window.location.hash)) return;
+    setIntroVisible(true);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
+      {introVisible && <IntroLoader onDone={() => setIntroVisible(false)} />}
       <div className="flex min-h-screen flex-col bg-background">
         {!immersive && <TopBar route={route as Route} onOpenSearch={() => setSearchOpen(true)} />}
         {!immersive && <ScrollProgress />}

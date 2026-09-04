@@ -395,3 +395,79 @@ label {
   border-radius: inherit;
 }
 /* touch ergonomics end */
+
+/* ------------------------------ brand intro ------------------------------
+ * Choreography for the opening intro (components/reelivo/brand/intro-loader).
+ * All decorative animations are motion-safe:; prefers-reduced-motion users get
+ * a short static fade instead (the component handles the shorter timeline). */
+@keyframes re-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.12);
+  }
+}
+@keyframes re-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes re-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+@keyframes re-hairline {
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+/* the whole-curtain exit: scale up slightly while fading to reveal the app */
+.intro-out {
+  opacity: 0;
+  transform: scale(1.045);
+  transition:
+    opacity 440ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 440ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* player watermark — slow legible breathing, never distracting */
+@keyframes wm-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+/* brand keyframes end */

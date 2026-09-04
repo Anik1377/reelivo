@@ -1,6 +1,6 @@
 {
   "name": "Reelivo — what to watch tonight",
-  "short_name": "re.",
+  "short_name": "Reelivo",
   "description": "A daily where-to-watch guide. Find something worth your evening across films and series, see where it streams, and press play — free.",
   "start_url": "/",
   "scope": "/",

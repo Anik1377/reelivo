@@ -2,6 +2,7 @@
 
 import { ExternalLink } from "lucide-react";
 import { ADS_ENABLED, sponsorLinkProps } from "@/lib/ads";
+import { ReelivoWordmark } from "./brand/logo";
 
 const QUICK_LINKS: { href: string; label: string }[] = [
   { href: "#/films", label: "Films" },
@@ -17,7 +18,7 @@ export function Footer({ onShowShortcuts }: { onShowShortcuts?: () => void }) {
       <div className="mx-auto max-w-[1400px] px-4 py-8 md:px-8 2xl:max-w-[1720px]">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <p className="display text-sm tracking-tight text-white/90">
-            reelivo<span className="text-primary">.</span>
+            <ReelivoWordmark />
             <span className="ml-2.5 font-sans text-xs font-normal text-ink-dim">
               Where to watch, tonight.
             </span>

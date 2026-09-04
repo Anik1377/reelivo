@@ -29,6 +29,8 @@ import type { MovieDetail, Paged, MediaItem, TvDetail, TvSeason } from "@/lib/tm
 import { Img, LostLink, usePrefersReducedMotion } from "../bits";
 import { toSavedItem } from "../media";
 import { AdBreakGate, MidRollAdBreak } from "../ad-break";
+import { PlayerWatermark } from "../brand/watermark";
+import { ReelivoWordmark } from "../brand/logo";
 import { midRollIntervalMs } from "@/lib/ads";
 import {
   Sheet,
@@ -437,9 +439,7 @@ export function PlayerView({
           aria-label="Back to title page"
         >
           <ChevronLeft className="size-4" aria-hidden />
-          <span className="display text-[15px] tracking-tight">
-            reelivo<span className="text-primary">.</span>
-          </span>
+          <ReelivoWordmark className="text-[15px]" />
         </button>
         <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0 text-right">
@@ -479,6 +479,8 @@ export function PlayerView({
       <main className="flex flex-1 flex-col items-center justify-center px-4 pb-8 md:px-8">
         <div className="w-full max-w-6xl">
           <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-surface ring-1 ring-white/10">
+            {/* brand bug — above the iframe, below the ad gate & countdown */}
+            <PlayerWatermark />
             {detail.isPending ? (
               <div className="grid h-full w-full place-items-center" aria-busy>
                 <span className="inline-flex items-center gap-2 text-sm text-ink-dim">
