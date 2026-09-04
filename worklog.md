@@ -958,3 +958,23 @@ Stage Summary:
 - TASK 37 CLOSED. Site is: 100% videasy-free, 100% https-canonical, verified end-to-end, and user-confirmed fixed.
 - Reminder for user: revoke GitHub PAT ghp_5WRf… (used in pushes this whole project).
 - Next: autonomous feature/styling round per standing instructions.
+
+---
+Task ID: 38
+Agent: Z.ai Code (main)
+Task: User confirmed "it fixed now" (Not-secure gone). Autonomous feature round — global Release-Reminder center (the calendar's Remind-me bells were invisible outside #/calendar).
+
+Work Log:
+- TASK 37 CLOSED first: independent re-verification (rg -i videasy repo-wide → zero in shipped code; lint/tsc clean; agent-browser smoke: home + detail + console sweep clean, no videasy at runtime; all services healthy) + closure entry appended. User's confirmation validates the diagnosis: old deployment served pre-fix code; commits e7eac07+8a29308 resolved it.
+- FEATURE (reminder-center.tsx, new): top-bar bell between the list bookmark and the profile switcher. Badge = upcoming count (Today+This week+Later, "Released" excluded), `mounted`-gated exactly like the watchlist badge. Panel: header with count copy ("3 upcoming titles" / "All caught up"), grouped list (Today / This week / Later / Released — UTC dayIso math, week = +7d), rows with poster tile (Img fallback), title, Film/Series + airLabel + relativeDue ("in 3 days"), solid TODAY chip for due-today rows, always-visible ✕ (touch-friendly, no hover-only controls), footer "Open the release calendar". Empty state: BellOff medallion + copy + calendar CTA. styled-scrollbar max-h-96 for long lists.
+- "Releasing today" toast: once per browser session (sessionStorage gate + firedRef), fires when any reminder.dueDate === today after rehydrate (waits for non-empty reminders — skipHydration makes the first render see [], so a rehydrate race can't swallow or duplicate it).
+- Rows are plain buttons inside Radix content (not DropdownMenuItem) → they do NOT auto-close the menu; row onGo now closes first (setOpen(false)) then navigates — caught in QA (menu overlaid the detail page).
+- Grouping markers frozen per mount (useMemo on dayIso(new Date())) — no midnight flicker while the panel is open.
+- STYLING: row-in stagger keyframes (motion-safe block, 30ms/row delay, capped at 8), Today chip = primary/15+border-primary/40, group headers uppercase tracking labels with counts — all inside the existing black/cyan token set.
+- Kids mode: bell intentionally visible (Calendar is kid-visible; reminders are per-profile so kids' own reminders show theirs).
+- QA (agent-browser, session t38): fresh load — badge hidden, no hydration/console errors (2 fresh loads + interactions, all zero; one mid-session mismatch line confirmed as the documented Fast-Refresh artifact). Empty state verified. Seeded 4-bucket reminders → badge "3", groups Today/This week/Later/Released all correct with relative labels, TODAY toast fired exactly once ("Releasing today — The Dark Knight"). Remove ✕ → badge 3→2, panel stays open for batch removal. Row click → navigates + menu closes (after fix). Footer → #/calendar. LIVE INTEGRATION: set "Coven Academy · Oct 1" through the real calendar bell → top-bar badge incremented 2→3. Mobile 390×844: bell visible, panel 320px fits, zero horizontal scroll, real poster art renders. Desktop 1440×900 screenshots in .qa-tmp/t38-*.png. lint + tsc clean.
+
+Stage Summary:
+- Reminders are now a first-class global surface: set anywhere (calendar), visible everywhere (bell + badge), actionable everywhere (jump to detail, batch remove), with a session toast on release day. The calendar→store→top-bar pipeline is verified end-to-end.
+- Files: src/components/reelivo/reminder-center.tsx (NEW), top-bar.tsx (mount + comment), globals.css (row-in keyframes).
+- Next candidates: optional browser Notification permission for background release alerts; DNA weekly digest; party service hosting (Railway/Render) still needs the user's call; PAT ghp_5WRf… STILL EXPOSED — revoke.
