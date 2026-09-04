@@ -17,7 +17,13 @@ import type { NextConfig } from "next";
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
   { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  /* no-referrer-when-downgrade (not the stricter default) on purpose:
+   * HilltopAds' revenue meta-tag program needs the full page URL as Referer
+   * on ad-tag/impression requests for content classification + advertiser
+   * targeting. The <meta name="referrer"> in layout.tsx carries the same
+   * policy (meta overrides header per spec) — kept identical so there is no
+   * mixed signal for browsers that prioritize either source. */
+  { key: "Referrer-Policy", value: "no-referrer-when-downgrade" },
   { key: "Content-Security-Policy", value: "upgrade-insecure-requests" },
   { key: "Permissions-Policy", value: "camera=(), geolocation=(), display-capture=(), payment=()" },
 ];

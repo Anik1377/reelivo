@@ -77,6 +77,15 @@ export const metadata: Metadata = {
       },
     ],
   },
+  /* HilltopAds revenue meta tag (their dashboard recommendation, article
+   * "How to Boost Your Revenue with a Meta Tag"): no-referrer-when-downgrade
+   * lets the browser send the full page URL as Referer on ad-tag/impression
+   * requests, so Hilltop can classify content and match advertiser targeting
+   * — meta-delivered policy overrides the HTTP header per the Referrer
+   * Policy spec; the header in next.config.ts is kept in agreement. */
+  other: {
+    referrer: "no-referrer-when-downgrade",
+  },
   /* HilltopAds site-ownership verification (user's dashboard tag) — rendered
    * server-side into <head> via the metadata API instead of a raw <meta> in
    * the JSX tree. */
