@@ -5,6 +5,20 @@
  * Server-only pipeline lives in `src/lib/ai-server.ts` (never import that from a client file).
  */
 
+import type { LucideIcon } from "lucide-react";
+import {
+  Droplets,
+  Flower2,
+  Ghost,
+  Heart,
+  Laugh,
+  Mountain,
+  Orbit,
+  ScrollText,
+  Sofa,
+  Zap,
+} from "lucide-react";
+
 export type AiMediaType = "movie" | "tv";
 
 /** Normalized title card shared by every AI surface (ask / mood / future rails). */
@@ -47,7 +61,6 @@ export interface VerdictResponse {
 export interface MoodResponse {
   mood: string;
   label: string;
-  emoji: string;
   blurb: string;
   results: AiTitle[];
 }
@@ -57,22 +70,23 @@ export interface AsrResponse {
   text: string;
 }
 
-/** Client-facing mood chip subset — keep keys in sync with MOOD_SEEDS (ai-server.ts). */
+/** Client-facing mood chip subset — keep keys in sync with MOOD_SEEDS (api/ai/mood).
+ * Icons instead of emojis: one consistent stroke language across the UI. */
 export interface MoodChip {
   key: string;
   label: string;
-  emoji: string;
+  icon: LucideIcon;
 }
 
 export const MOODS: MoodChip[] = [
-  { key: "comfort", label: "Warm & cozy", emoji: "🛋️" },
-  { key: "adrenaline", label: "High-octane", emoji: "⚡" },
-  { key: "mindbend", label: "Mind-bending", emoji: "🌀" },
-  { key: "tears", label: "Tearjerker", emoji: "💧" },
-  { key: "laugh", label: "Laugh-out-loud", emoji: "😂" },
-  { key: "date", label: "Date night", emoji: "💘" },
-  { key: "spooky", label: "Spooky", emoji: "👻" },
-  { key: "epic", label: "Epic scale", emoji: "🏔️" },
-  { key: "true-story", label: "Based on truth", emoji: "📜" },
-  { key: "anime", label: "Anime", emoji: "🌸" },
+  { key: "comfort", label: "Warm & cozy", icon: Sofa },
+  { key: "adrenaline", label: "High-octane", icon: Zap },
+  { key: "mindbend", label: "Mind-bending", icon: Orbit },
+  { key: "tears", label: "Tearjerker", icon: Droplets },
+  { key: "laugh", label: "Laugh-out-loud", icon: Laugh },
+  { key: "date", label: "Date night", icon: Heart },
+  { key: "spooky", label: "Spooky", icon: Ghost },
+  { key: "epic", label: "Epic scale", icon: Mountain },
+  { key: "true-story", label: "Based on truth", icon: ScrollText },
+  { key: "anime", label: "Anime", icon: Flower2 },
 ];

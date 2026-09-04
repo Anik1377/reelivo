@@ -151,19 +151,18 @@ export function TopBar({
               </span>
             )}
           </a>
-          {/* profile switcher — the whole point of profiles is fast person-swapping */}
+          {/* profile switcher — the whole point of profiles is fast person-swapping.
+           * ProfileAvatar(undefined) renders the generic user tile, so the SSR
+           * markup and the first client render (store not yet rehydrated) are
+           * identical — no mounted branch, no hydration mismatch (React 19 flips
+           * useSyncExternalStore mid-hydration). The real avatar lands when the
+           * persisted profile rehydrates. */}
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={activeProfile ? `Profile: ${activeProfile.name}` : "Choose profile"}
               className="rounded-full transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             >
-              {mounted ? (
-                <ProfileAvatar profile={activeProfile} className="size-9" />
-              ) : (
-                <span className="grid size-9 place-items-center rounded-full bg-white/[0.06] text-white/50">
-                  <UserRound className="size-4" aria-hidden />
-                </span>
-              )}
+              <ProfileAvatar profile={activeProfile} className="size-9" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"

@@ -289,7 +289,13 @@ function TitleBlock({
         <button
           type="button"
           onClick={() => {
-            const url = window.location.href;
+            /* Crawler-visible deep link: hash fragments (#/movie/155) never
+             * reach the server, so unfurls (Messenger, WhatsApp, Slack…) only
+             * ever saw the generic home card. `?go=type/id` keeps the same
+             * destination but lets generateMetadata render the per-title OG
+             * card — the client converts it back into the hash route on
+             * mount (app.tsx). */
+            const url = `${window.location.origin}/?go=${type}/${detail.id}`;
             const share = (navigator as Navigator & { share?: (d: { title: string; url: string }) => Promise<void> }).share;
             if (typeof share === "function") {
               navigator

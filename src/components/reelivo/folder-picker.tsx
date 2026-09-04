@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Folder, ListPlus } from "lucide-react";
+import { Check, Folder, ListPlus } from "lucide-react";
 import { toast } from "sonner";
 import type { MediaType } from "@/lib/tmdb-types";
 import { useReelivo } from "@/lib/store";
@@ -206,10 +206,6 @@ function Bookmarkish() {
 }
 
 function CheckMark() {
-  return (
-    <span className="text-[11px] font-bold tracking-wide text-primary uppercase" aria-hidden>
-      ✓
-    </span>
-  );
+  return <Check className="size-3.5 text-primary" strokeWidth={3} aria-hidden />;
 }
 

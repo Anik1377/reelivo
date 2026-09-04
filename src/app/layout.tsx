@@ -40,15 +40,33 @@ export const metadata: Metadata = {
     description:
       "A daily where-to-watch guide. Find something worth your evening across films and series, see where it streams, and press play — free.",
     siteName: "Reelivo",
+    url: "/",
+    locale: "en_US",
     type: "website",
-    images: ["/api/og"],
+    /* width/height + alt are required by Messenger/WhatsApp/Slack unfurls —
+     * without them some crawlers skip the card entirely. */
+    images: [
+      {
+        url: "/api/og",
+        width: 1200,
+        height: 630,
+        alt: "Reelivo — what to watch tonight",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Reelivo — what to watch tonight",
     description:
       "A daily where-to-watch guide. Find something worth your evening, see where it streams, and press play — free.",
-    images: ["/api/og"],
+    images: [
+      {
+        url: "/api/og",
+        width: 1200,
+        height: 630,
+        alt: "Reelivo — what to watch tonight",
+      },
+    ],
   },
   /* HilltopAds site-ownership verification (user's dashboard tag) — rendered
    * server-side into <head> via the metadata API instead of a raw <meta> in

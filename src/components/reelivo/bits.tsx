@@ -225,12 +225,20 @@ export function ErrorNote({ onRetry }: { onRetry?: () => void }) {
 }
 
 export function useMounted() {
-  // false during SSR/hydration, true afterwards — no effects needed
-  return useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
-  );
+  /* Effect-based mount flag: guaranteed false through SSR, the hydration
+   * render AND the first paint, flipping only after commit. The earlier
+   * useSyncExternalStore variant (getSnapshot: () => true) flips DURING
+   * React 19's hydration pass — any SSR'd structure gated on it rendered a
+   * different tree on the client, shifting every downstream useId (Radix
+   * ids) and logging hydration mismatches. The rAF indirection also keeps
+   * react-hooks/set-state-in-effect happy (no sync setState in the effect).
+   */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return mounted;
 }
 
 /* True when the user prefers reduced motion — carousels must not auto-advance. */

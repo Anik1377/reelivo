@@ -26,7 +26,8 @@ export const dynamic = "force-dynamic";
  * Cached per mood key for 1 hour. Naive rate limit: 30 req/min/IP.
  *
  * The 10 curated keys must stay in sync with the client-facing `MOODS` chips in
- * lib/ai-types.ts (label + emoji are duplicated there by design — that file is client-safe).
+ * lib/ai-types.ts (labels are duplicated there by design — that file is client-safe
+ * and carries the Lucide icon mapping; the server speaks labels only).
  */
 
 const MOOD_CACHE_TTL_MS = 60 * 60 * 1000;
@@ -36,7 +37,6 @@ const CAP = 16;
 
 interface MoodSeed {
   label: string;
-  emoji: string;
   blurb: string;
   /** Same shape the ask-LLM emits; run through sanitizeDiscoverParams per media type. */
   params: Record<string, string>;
@@ -45,61 +45,51 @@ interface MoodSeed {
 const MOOD_SEEDS: Record<string, MoodSeed> = {
   comfort: {
     label: "Warm & cozy",
-    emoji: "🛋️",
     blurb: "Soft edges, happy endings, zero stress.",
     params: { with_genres: "10751,35", "vote_average.gte": "7", "vote_count.gte": "1000", sort_by: "popularity.desc" },
   },
   adrenaline: {
     label: "High-octane",
-    emoji: "⚡",
     blurb: "Chases, fights and ticking clocks.",
     params: { with_genres: "28,53", "vote_average.gte": "6.5", "vote_count.gte": "1000", sort_by: "popularity.desc" },
   },
   mindbend: {
     label: "Mind-bending",
-    emoji: "🌀",
     blurb: "Plots that reward a second watch.",
     params: { with_genres: "878,9648", "vote_average.gte": "7", "vote_count.gte": "1500", sort_by: "vote_average.desc" },
   },
   tears: {
     label: "Tearjerker",
-    emoji: "💧",
     blurb: "Bring a blanket — maybe two.",
     params: { with_genres: "18,10749", "vote_average.gte": "7", "vote_count.gte": "800", sort_by: "vote_average.desc" },
   },
   laugh: {
     label: "Laugh-out-loud",
-    emoji: "😂",
     blurb: "Comedies that still land.",
     params: { with_genres: "35", "vote_average.gte": "7", "vote_count.gte": "1000", sort_by: "popularity.desc" },
   },
   date: {
     label: "Date night",
-    emoji: "💘",
     blurb: "Chemistry-forward picks for two.",
     params: { with_genres: "10749", "vote_average.gte": "6.8", "vote_count.gte": "600", sort_by: "popularity.desc" },
   },
   spooky: {
     label: "Spooky",
-    emoji: "👻",
     blurb: "Lights low, volume up.",
     params: { with_genres: "27,53", "vote_average.gte": "6", "vote_count.gte": "500", sort_by: "popularity.desc" },
   },
   epic: {
     label: "Epic scale",
-    emoji: "🏔️",
     blurb: "Sagas with real scale and sweep.",
     params: { with_genres: "12,14", "vote_average.gte": "7", "vote_count.gte": "2000", sort_by: "vote_average.desc" },
   },
   "true-story": {
     label: "Based on truth",
-    emoji: "📜",
     blurb: "True stories that stick with you.",
     params: { with_genres: "99", "vote_average.gte": "7.2", "vote_count.gte": "300", sort_by: "vote_average.desc" },
   },
   anime: {
     label: "Anime",
-    emoji: "🌸",
     blurb: "Hand-drawn worlds worth getting lost in.",
     params: { with_genres: "16", with_original_language: "ja", "vote_average.gte": "7", "vote_count.gte": "300", sort_by: "popularity.desc" },
   },
@@ -162,7 +152,7 @@ export async function GET(req: NextRequest) {
         { status: 502 }
       );
     }
-    payload = { mood, label: seed.label, emoji: seed.emoji, blurb: seed.blurb, results };
+    payload = { mood, label: seed.label, blurb: seed.blurb, results };
   } else {
     // LLM fallback: treat the unknown key as a natural-language ask
     const outcome = await askPipeline(mood, null, CAP);
@@ -175,7 +165,6 @@ export async function GET(req: NextRequest) {
         .split(/[\s_-]+/)
         .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
         .join(" "),
-      emoji: "🎬",
       blurb: outcome.data.blurb,
       results: outcome.data.results,
     };

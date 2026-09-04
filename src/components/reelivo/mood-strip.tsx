@@ -60,6 +60,7 @@ export function MoodStrip() {
       >
         {MOODS.map((m) => {
           const on = m.key === active;
+          const Icon = m.icon;
           return (
             <button
               key={m.key}
@@ -72,7 +73,7 @@ export function MoodStrip() {
                   : "border-white/10 bg-white/[0.04] text-ink-dim hover:border-white/25 hover:text-foreground"
               }`}
             >
-              <span aria-hidden>{m.emoji}</span>
+              <Icon className="size-4" aria-hidden />
               {m.label}
             </button>
           );
@@ -96,7 +97,20 @@ export function MoodStrip() {
             </p>
           ) : (
             <div className="mt-9">
-              <SectionHead title={`${q.data.emoji} ${q.data.label}`} />
+              <SectionHead
+                kicker="Mood picks"
+                title={q.data.label}
+                aside={(() => {
+                  const ActiveIcon = MOODS.find((m) => m.key === q.data.mood)?.icon;
+                  return (
+                    ActiveIcon && (
+                      <span className="grid size-9 place-items-center rounded-full border border-primary/30 bg-primary/10 text-primary">
+                        <ActiveIcon className="size-4" aria-hidden />
+                      </span>
+                    )
+                  );
+                })()}
+              />
               <p className="-mt-2 mb-4 text-[13.5px] text-ink-dim">
                 {q.data.blurb}
               </p>

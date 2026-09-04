@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { Check, Play, RotateCcw } from "lucide-react";
+import { Check, Play, RotateCcw, Star } from "lucide-react";
 import { hrefFor, navigate, useDetailStaleTime, usePrefetchDetail, useTmdb } from "@/lib/hooks";
 import { dek, poster, score, still, yearOf } from "@/lib/format";
 import { progressKey, useReelivo, type ProgressEntry } from "@/lib/store";
@@ -284,7 +284,11 @@ export function CollectionView({ id }: { id: number }) {
           </h1>
           <p className="mt-2.5 text-[13.5px] text-white/70">
             {parts.length} {parts.length === 1 ? "film" : "films"}
-            {avg > 0 && ` · ★ ${avg.toFixed(1)} average`}
+            {avg > 0 && (
+              <span className="inline-flex items-center gap-1">
+                · <Star className="size-3.5 fill-current" aria-hidden /> {avg.toFixed(1)} average
+              </span>
+            )}
             <span className="mx-2 text-white/25" aria-hidden>
               ·
             </span>

@@ -500,7 +500,7 @@ function ServiceTile({
       )}
       <span className="min-w-0">
         <span className="block truncate text-[13px] font-semibold text-foreground">{label}</span>
-        <span className="block text-[11px] text-ink-dim">See what's on →</span>
+        <span className="block text-[11px] text-ink-dim">See what's on</span>
       </span>
     </a>
   );

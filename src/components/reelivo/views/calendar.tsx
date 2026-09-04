@@ -1,8 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Bell, BellOff, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  Bell,
+  BellOff,
+  ChevronLeft,
+  ChevronRight,
+  Globe,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { hrefFor, navigate, tmdbFetch } from "@/lib/hooks";
 import {
@@ -18,6 +25,15 @@ import {
 } from "@/lib/format";
 import { useReelivo, type ReminderItem } from "@/lib/store";
 import type { MediaItem, Paged, UpcomingResults } from "@/lib/tmdb-types";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EmptyNote, ErrorNote, Img, StillSkeleton, useMounted } from "../bits";
 
 const HOUR = 60 * 60 * 1000;
@@ -26,6 +42,63 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MIN_OFFSET = -1; // one month back…
 const MAX_OFFSET = 12; // …a year ahead
 const CELL_MAX = 3; // entries per desktop cell before a "+N" count
+const REGION_KEY = "reelivo:cal-region";
+
+/** Region catalogue for the calendar's country picker. "WW" means worldwide
+ * releases; anything else passes TMDB's `region` param so film premiere dates
+ * resolve against that country's theatrical/digital calendar. Bangladesh sits
+ * right after Worldwide — the founder's market — then a practical world tour. */
+const REGIONS: { code: string; name: string }[] = [
+  { code: "WW", name: "Worldwide" },
+  { code: "BD", name: "Bangladesh" },
+  { code: "IN", name: "India" },
+  { code: "PK", name: "Pakistan" },
+  { code: "NP", name: "Nepal" },
+  { code: "LK", name: "Sri Lanka" },
+  { code: "US", name: "United States" },
+  { code: "GB", name: "United Kingdom" },
+  { code: "CA", name: "Canada" },
+  { code: "AU", name: "Australia" },
+  { code: "NZ", name: "New Zealand" },
+  { code: "DE", name: "Germany" },
+  { code: "FR", name: "France" },
+  { code: "ES", name: "Spain" },
+  { code: "IT", name: "Italy" },
+  { code: "NL", name: "Netherlands" },
+  { code: "PL", name: "Poland" },
+  { code: "SE", name: "Sweden" },
+  { code: "TR", name: "Türkiye" },
+  { code: "AE", name: "United Arab Emirates" },
+  { code: "SA", name: "Saudi Arabia" },
+  { code: "EG", name: "Egypt" },
+  { code: "NG", name: "Nigeria" },
+  { code: "ZA", name: "South Africa" },
+  { code: "ID", name: "Indonesia" },
+  { code: "MY", name: "Malaysia" },
+  { code: "PH", name: "Philippines" },
+  { code: "SG", name: "Singapore" },
+  { code: "TH", name: "Thailand" },
+  { code: "VN", name: "Vietnam" },
+  { code: "JP", name: "Japan" },
+  { code: "KR", name: "South Korea" },
+  { code: "HK", name: "Hong Kong" },
+  { code: "TW", name: "Taiwan" },
+  { code: "CN", name: "China" },
+  { code: "BR", name: "Brazil" },
+  { code: "MX", name: "Mexico" },
+  { code: "AR", name: "Argentina" },
+];
+
+/** Read the persisted calendar region — the calendar mounts client-side only
+ * (the hash syncs after hydration), so touching localStorage at init is safe. */
+function initialRegion(): string {
+  try {
+    const saved = window.localStorage.getItem(REGION_KEY);
+    return saved && REGIONS.some((r) => r.code === saved) ? saved : "WW";
+  } catch {
+    return "WW";
+  }
+}
 
 interface CalEntry {
   key: string;
@@ -233,7 +306,22 @@ function RemindersPanel() {
 
 export function CalendarView() {
   const [offset, setOffset] = useState(0);
+  /* Region starts from localStorage (client-only mount → safe), persisted on
+   * change. "WW" passes no region param; anything else pins film premiere
+   * dates to that country's release calendar. */
+  const [region, setRegion] = useState(initialRegion);
   const mounted = useMounted();
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(REGION_KEY, region);
+    } catch {
+      /* private mode → session-only region, fine */
+    }
+  }, [region]);
+
+  const regionName = REGIONS.find((r) => r.code === region)?.name ?? "Worldwide";
+  const regional = region !== "WW";
 
   /* Anchor month from the UTC clock. This view mounts client-side only (the
    * hash syncs after hydration), so reading the clock at render is safe — and
@@ -247,12 +335,26 @@ export function CalendarView() {
   const prefix = `${year}-${String(month0 + 1).padStart(2, "0")}-`;
   const todayIso = dayIso(now);
 
+  /* Vote floors only make sense for months that have fully PASSED — TMDB
+   * titles dated in current/future months carry vote_count = 0 until close to
+   * release, so a floor would blank out the entire year ahead (the classic
+   * "calendar only shows this month" bug). Popularity keeps the ordering
+   * sane either way. */
+  const monthFullyPast = bounds.lte < todayIso;
+  const voteFloor = monthFullyPast ? (regional ? 5 : 50) : undefined;
+
   const upcomingQ = useQuery<UpcomingResults>({
-    queryKey: ["tmdb", "movie/upcoming", {}],
-    queryFn: () => tmdbFetch<UpcomingResults>("movie/upcoming"),
+    queryKey: ["tmdb", "movie/upcoming", { region }],
+    queryFn: () =>
+      tmdbFetch<UpcomingResults>("movie/upcoming", {
+        region: regional ? region : undefined,
+      }),
     staleTime: HOUR,
+    placeholderData: keepPreviousData,
   });
 
+  /* Regional mode relaxes the vote floor — local releases carry far fewer
+   * votes than global tentpoles, and 50 would hollow out small markets. */
   const movieQ = useQuery<Paged<MediaItem>>({
     queryKey: [
       "tmdb",
@@ -260,9 +362,8 @@ export function CalendarView() {
       {
         "primary_release_date.gte": bounds.gte,
         "primary_release_date.lte": bounds.lte,
-        sort_by: "popularity.desc",
-        "vote_count.gte": 50,
-        include_adult: false,
+        region,
+        voteFloor: voteFloor ?? 0,
       },
     ],
     queryFn: () =>
@@ -270,12 +371,16 @@ export function CalendarView() {
         "primary_release_date.gte": bounds.gte,
         "primary_release_date.lte": bounds.lte,
         sort_by: "popularity.desc",
-        "vote_count.gte": 50,
+        "vote_count.gte": voteFloor,
+        region: regional ? region : undefined,
         include_adult: false,
       }),
     staleTime: HOUR,
+    placeholderData: keepPreviousData,
   });
 
+  /* TV: TMDB has no per-region first-air-date filter — series premieres stay
+   * worldwide by design (noted under the selector). */
   const tvQ = useQuery<Paged<MediaItem>>({
     queryKey: [
       "tmdb",
@@ -283,9 +388,7 @@ export function CalendarView() {
       {
         "first_air_date.gte": bounds.gte,
         "first_air_date.lte": bounds.lte,
-        sort_by: "popularity.desc",
-        "vote_count.gte": 50,
-        include_adult: false,
+        voteFloor: voteFloor ?? 0,
       },
     ],
     queryFn: () =>
@@ -293,10 +396,11 @@ export function CalendarView() {
         "first_air_date.gte": bounds.gte,
         "first_air_date.lte": bounds.lte,
         sort_by: "popularity.desc",
-        "vote_count.gte": 50,
+        "vote_count.gte": voteFloor,
         include_adult: false,
       }),
     staleTime: HOUR,
+    placeholderData: keepPreviousData,
   });
 
   useEffect(() => {
@@ -350,6 +454,11 @@ export function CalendarView() {
   const loading = upcomingQ.isPending || movieQ.isPending || tvQ.isPending;
   const failed = movieQ.isError || tvQ.isError || upcomingQ.isError;
   const fetching = upcomingQ.isFetching || movieQ.isFetching || tvQ.isFetching;
+  /* keepPreviousData serves the PREVIOUS month's payload while a new month
+   * loads — but the prefix filter instantly hides those entries, so a bare
+   * "totalEntries === 0" would flash the empty state mid-navigation. Treat
+   * any in-flight fetch with zero placed entries as loading instead. */
+  const showSkeleton = loading || (fetching && totalEntries === 0);
   const retryAll = () => {
     upcomingQ.refetch();
     movieQ.refetch();
@@ -362,8 +471,18 @@ export function CalendarView() {
       <p className="kicker text-primary">Coming soon</p>
       <h1 className="display mt-1.5 text-3xl tracking-tight md:text-4xl">Release calendar</h1>
       <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-ink-dim">
-        Films and series landing this month — tap the bell on anything you want
-        to be nudged about.
+        {regional ? (
+          <>
+            Premieres landing in {prettyMonth(year, month0)} — film dates follow
+            the <span className="font-semibold text-foreground">{regionName}</span> release
+            calendar, series premiere worldwide.
+          </>
+        ) : (
+          <>
+            Films and series landing this month — pick a country below for local
+            release dates, and tap the bell on anything worth a nudge.
+          </>
+        )}
       </p>
 
       {/* month nav */}
@@ -407,10 +526,60 @@ export function CalendarView() {
             This month
           </button>
         )}
+        {offset !== 1 && (
+          <button
+            type="button"
+            onClick={() => setOffset(1)}
+            className="inline-flex h-9 items-center rounded-full border border-white/10 px-3.5 text-xs font-semibold text-ink-dim transition-colors duration-150 hover:border-primary/60 hover:text-primary"
+          >
+            Next month
+          </button>
+        )}
+      </div>
+
+      {/* region picker — every month refetches against the chosen country's
+       * release calendar; the choice persists across visits. */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="relative">
+          <Globe
+            className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-dim"
+            aria-hidden
+          />
+          <Select value={region} onValueChange={setRegion}>
+            <SelectTrigger
+              aria-label="Country for film release dates"
+              className="h-11 w-[200px] rounded-full border-white/10 bg-white/[0.03] pl-10 text-[13px] font-semibold text-foreground transition-colors duration-150 hover:border-primary/60 focus:ring-primary/50 sm:w-[240px]"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-80 border-white/10 bg-popover text-foreground">
+              <SelectGroup>
+                <SelectLabel className="kicker text-[10px] text-ink-dim">
+                  Release region
+                </SelectLabel>
+                {REGIONS.map((r) => (
+                  <SelectItem key={r.code} value={r.code} className="text-[13px]">
+                    {r.name}
+                    {r.code !== "WW" && (
+                      <span className="ml-1.5 text-[10px] font-semibold text-ink-dim">
+                        {r.code}
+                      </span>
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+        <p className="text-[11.5px] leading-snug text-ink-dim/80">
+          {regional
+            ? `Film premieres dated for ${regionName} — series stay worldwide`
+            : "Switch countries for local release dates"}
+        </p>
       </div>
 
       {/* body */}
-      {loading && totalEntries === 0 ? (
+      {showSkeleton ? (
         <div className="mt-8 space-y-2" aria-hidden>
           {Array.from({ length: 7 }).map((_, i) => (
             <StillSkeleton key={i} className="h-12 w-full rounded-lg" />
@@ -423,8 +592,9 @@ export function CalendarView() {
       ) : totalEntries === 0 ? (
         <div className="mt-8">
           <EmptyNote title={`Nothing on the calendar in ${prettyMonth(year, month0)}`}>
-            No film or series premieres found for this month — step forward a
-            month; the calendar keeps a year ahead.
+            {regional
+              ? `No premieres found for ${regionName} this month — try stepping a month forward, or widen back to Worldwide.`
+              : "No film or series premieres found for this month — step forward a month; the calendar keeps a year ahead."}
           </EmptyNote>
         </div>
       ) : (

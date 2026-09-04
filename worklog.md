@@ -832,3 +832,37 @@ Stage Summary:
 - 15 new features live (17 total incl. 2 pre-shipped): Ask Reelivo, moods, verdicts, voice search, calendar+reminders, episode radar, history stats, DNA, mini-player, saga progress, shareable lists, watch party, kids shaping, search filters, service deep links, rail keyboard nav.
 - Known/notes: Safari voice may need wav fallback (MediaRecorder mp4 → honest toast); party service runs without --hot (sandbox SIGABRT); roll-call syncs intent, not frames (by design, disclosed in-UI); .qa-tmp/ holds QA scripts + seeds (untracked).
 - Next-phase candidates: DNA extended stats (weekly email digest), calendar reminders → real notifications API, party screen-share/voice, PWA offline shell, undo PAT (ghp_5WRf… STILL EXPOSED — revoke!).
+
+---
+Task ID: 33
+Agent: Z.ai Code (main)
+Task: User-reported fixes — (1) OG art missing when sharing to Messenger, (2) no emojis in icons, (3) calendar must load every month + country selector for regional films.
+
+Work Log:
+- Recovered .env AGAIN at session start (only DATABASE_URL survived) via `git show e78eb4a:.env > .env`; TMDB 401 → 200. RECURRING ISSUE — consider a dev-start guard that restores/validates TMDB_API_KEY automatically.
+- OG/Messenger fix (3 layers):
+  1. layout.tsx: openGraph/twitter images upgraded to {url,width:1200,height:630,alt} objects + og:url + og:locale (Messenger/WhatsApp/Slack skip cards without dimensions+alt).
+  2. page.tsx: new `requestMetadataBase()` reads x-forwarded-host/x-forwarded-proto per request → metadataBase resolves og:image against the REAL public host (was falling back to http://localhost:3000, which crawlers can never fetch — the root cause of the missing Messenger art). Returned even without ?go so the generic card also unfurls correctly.
+  3. detail.tsx share button now shares `${origin}/?go=type/id` instead of window.location.href — hash URLs (#/movie/155) never reach the server, so crawlers previously only ever saw the generic home card. Client app.tsx already converts ?go= back to the hash route on mount.
+  - Verified: `curl /?go=movie/155` emits full og:* + twitter:* set with absolute image URL; /api/og renders a real 31KB PNG with TMDB backdrop.
+- Emoji purge (user: "do not use emojis in the icon"):
+  - ai-types.ts: MoodChip.emoji → MoodChip.icon (LucideIcon): Sofa/Zap/Orbit/Drops/Laugh/Heart/Ghost/Mountain/ScrollText/Flower2; MoodResponse.emoji dropped.
+  - api/ai/mood/route.ts: MOOD_SEEDS emoji fields + 🎬 fallback removed from payloads.
+  - mood-strip.tsx: chips render <m.icon>; active rail header gets a circular icon badge in aside.
+  - folder-picker.tsx "✓" → <Check strokeWidth=3>; director.tsx ★×1 → <Star fill-primary> (the card-sub ★ became plain "year · score" since StillCard.sub is string-typed); collection.tsx ★ → <Star>; home.tsx "See what's on →" arrow glyph dropped.
+  - Keyboard glyphs (↑↓↵) intentionally kept — they depict physical keys.
+- Calendar overhaul (user: "is the calendar dynamic? should load every month… option to choose their country"):
+  - ROOT BUG: vote_count.gte=50 blanked ALL future months — TMDB far-future titles have vote_count=0 (Oct 2026: 760 titles exist, 0 pass the floor). Floor now applies ONLY to fully-past months (worldwide 50 / regional 5); current+future months run floorless, popularity-sorted. Every month out to +12 now loads real data.
+  - Country selector: 38-region REGIONS catalogue (WW + BD first, then world), shadcn Select styled as a pill with Globe icon; passes TMDB `region` param to discover/movie + movie/upcoming so FILM premiere dates resolve against that country's release calendar; TV stays worldwide (TMDB has no per-region first_air_date) — noted in UI copy. Region persists in localStorage `reelivo:cal-region`.
+  - Dynamics: keepPreviousData on all three queries + showSkeleton (fetching && 0 entries) so month/region switches never flash the empty state; "Next month" quick pill joins "This month"; regional mode relaxes vote floor (small markets); empty state mentions widening back to Worldwide.
+  - Verified BD vs IN via API: Avatar Fire and Ash = Dec 17 (BD) vs Dec 19 (IN); The Housemaid = Dec 18 (BD) vs Jan 2026 (IN).
+- BONUS BUG FIX (hydration regression from Task-32 commit 204df5b): fresh home load logged an attribute-mismatch hydration error. Real diff: radix DropdownMenuTrigger useId shifted (`_R_14hindlb_` vs `_R_94andlb_`) because useMounted()'s useSyncExternalStore(getSnapshot:()=>true) flips DURING React 19's hydration pass, so mounted-gated structure (home rails, TopBar avatar branch) rendered differently server vs client. Fix: useMounted → useState+useEffect+rAF (guaranteed false through hydration, lint-clean — react-hooks/set-state-in-effect forbids sync setState in effect); TopBar avatar lost its mounted ternary entirely (ProfileAvatar(undefined) ≡ old fallback). Also fixed profiles.tsx avatar icon class size-1/2 → size-[45%].
+- QA (agent-browser): fresh sessions w5/w6/m1 — ZERO hydration errors, zero console errors; desktop 1440×900 home + calendar + mood strip + detail (The Dark Knight renders, Share button present); mobile 390×844 calendar list layout + region dropdown both clean; Next-month pill → October 2026 populates (was empty before the vote-floor fix); Bangladesh region selection updates trigger/hint/description/entries on desktop AND mobile; region persists across reloads; mood chips = 10/10 SVG icons, 0 emoji chars; profile gate + creation flow works; lint + tsc clean.
+
+Stage Summary:
+- Messenger share now produces: per-title OG card (title/year/overview/backdrop/score/FREE badge) with absolute public URLs, correct dimensions + alt. Share links are crawler-visible ?go= deep links.
+- Icons: zero emojis/glyphs in UI (only keyboard depictions remain, by design); consistent Lucide stroke language in mood chips, rating rows, folder picker.
+- Calendar: genuinely dynamic — 13 navigable months each fetching their own data, no more blank future months; 38-country regional premiere dates with persistence.
+- Hydration: the last React 19 useSyncExternalStore landmine defused globally via useMounted rewrite.
+- Files touched: src/app/layout.tsx, src/app/page.tsx, src/components/reelivo/views/detail.tsx, src/lib/ai-types.ts, src/app/api/ai/mood/route.ts, src/components/reelivo/mood-strip.tsx, src/components/reelivo/folder-picker.tsx, src/components/reelivo/views/director.tsx, src/components/reelivo/views/collection.tsx, src/components/reelivo/views/home.tsx, src/components/reelivo/views/calendar.tsx, src/components/reelivo/bits.tsx, src/components/reelivo/top-bar.tsx, src/components/reelivo/profiles.tsx, .env (restored).
+- Unresolved/next: .env keeps evaporating at session boundaries (add an auto-restore check to the startup flow); Task-32 leftover — shared-lists POST endpoint has no UI entry point yet; PAT ghp_5WRf… remains exposed in shell history — revoke and rotate.

@@ -53,7 +53,7 @@ export function ProfileAvatar({
         aria-hidden
         className={`grid shrink-0 place-items-center rounded-full bg-white/[0.08] text-white/50 ${className}`}
       >
-        <UserRound className="size-1/2" />
+        <UserRound className="size-[45%]" />
       </span>
     );
   }

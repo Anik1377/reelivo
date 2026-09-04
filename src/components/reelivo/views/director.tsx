@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CalendarDays, Clapperboard, MapPin, Play } from "lucide-react";
+import { ArrowLeft, CalendarDays, Clapperboard, MapPin, Play, Star } from "lucide-react";
 import {
   hrefFor,
   navigate,
@@ -298,8 +298,9 @@ export function DirectorView({ id }: { id: number }) {
                   {titleOf(signature)}
                 </h2>
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-white/65">
-                  <span className="tabular font-semibold text-primary">
-                    ★ {score(signature.vote_average)}
+                  <span className="tabular inline-flex items-center gap-1 font-semibold text-primary">
+                    <Star className="size-3.5 fill-primary" aria-hidden />
+                    {score(signature.vote_average)}
                   </span>
                   <span className="tabular">{yearOf(signature)}</span>
                   <span className="rounded border border-white/15 px-1.5 py-px text-[10px] font-bold tracking-wider text-white/70">
@@ -412,11 +413,7 @@ export function DirectorView({ id }: { id: number }) {
                         type={type}
                         preview
                         fluid
-                        sub={
-                          showAll
-                            ? `${yearOf(m)} · Directed`
-                            : `${yearOf(m)} · ★ ${score(c.vote_average)}`
-                        }
+                        sub={showAll ? `${yearOf(m)} · Directed` : `${yearOf(m)} · ${score(c.vote_average)}`}
                         showScore={false}
                       />
                     </div>
