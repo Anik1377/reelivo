@@ -1041,3 +1041,19 @@ Work Log:
 Stage Summary:
 - PRODUCTION CONFIRMED: zone 7379317 serves real fill, the player plays it, and impression/start beacons reach Hilltop from the visitor's browser. Traffic should now appear in the HilltopAds dashboard (Requests immediately; Impressions/Revenue as real user volume accrues).
 - Residual: user should still add the two env vars in Vercel for code-free zone rotation (code default already points at the right URL, so this is optional); revoke PAT ghp_5WRf….
+
+---
+Task ID: 41
+Agent: Z.ai Code (main)
+Task: User: HilltopAds says to add <meta name="referrer" content="no-referrer-when-downgrade" /> to boost earnings (their "How to Boost Your Revenue with a Meta Tag" article).
+
+Work Log:
+- Read the HilltopAds article: the tag feeds their content-classification/keyword-matching system → better advertiser targeting matches → higher demand → more revenue. Optional but recommended; detection is automatic once present in <head>.
+- Implemented BOTH halves of the referrer signal: (1) layout.tsx metadata.other → <meta name="referrer" content="no-referrer-when-downgrade"/> server-rendered into <head>; (2) next.config.ts Referrer-Policy header aligned from strict-origin-when-cross-origin → no-referrer-when-downgrade (meta overrides header per spec, but one consistent policy removes any mixed signal). Comment in both files cites the Hilltop program.
+- Effect on the ad pipeline: the browser's VAST-tag fetch and impression beacons now send the FULL page URL as Referer (previously origin-only) — richer attribution for Hilltop's classification.
+- DEV-ONLY QUIRK documented: in `next dev`, React 19 hydration (the known Radix-id selective-hydration race, Task 39) strips streamed head metadata from the DOM after load — head showed only 4 metas locally. PRODUCTION IS UNAFFECTED (27→28 metas, OG/verification/referrer all survive hydration there). Verified via production DOM inspection, not just curl.
+- QA: lint + tsc clean; local served HTML + header verified via curl; deployed to production (commit 0bf954d) — header `referrer-policy: no-referrer-when-downgrade` live, meta present in hydrated DOM, 0 console errors.
+
+Stage Summary:
+- HilltopAds' revenue meta tag is live on production; the system auto-detects it per their docs. Combined with Task 40's browser-direct ad requests, both halves of Hilltop's earnings equation (countable traffic + content classification) are now in place.
+- Next: watch the Hilltop dashboard for the "meta tag detected" state + traffic; revoke PAT ghp_5WRf….
