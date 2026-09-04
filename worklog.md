@@ -866,3 +866,23 @@ Stage Summary:
 - Hydration: the last React 19 useSyncExternalStore landmine defused globally via useMounted rewrite.
 - Files touched: src/app/layout.tsx, src/app/page.tsx, src/components/reelivo/views/detail.tsx, src/lib/ai-types.ts, src/app/api/ai/mood/route.ts, src/components/reelivo/mood-strip.tsx, src/components/reelivo/folder-picker.tsx, src/components/reelivo/views/director.tsx, src/components/reelivo/views/collection.tsx, src/components/reelivo/views/home.tsx, src/components/reelivo/views/calendar.tsx, src/components/reelivo/bits.tsx, src/components/reelivo/top-bar.tsx, src/components/reelivo/profiles.tsx, .env (restored).
 - Unresolved/next: .env keeps evaporating at session boundaries (add an auto-restore check to the startup flow); Task-32 leftover — shared-lists POST endpoint has no UI entry point yet; PAT ghp_5WRf… remains exposed in shell history — revoke and rotate.
+
+---
+Task ID: 34
+Agent: Z.ai Code (main)
+Task: Videasy is down for good — user asked for alternative providers used by similar sites, added as servers, plus a server selector UI. Goals: fewer ads, best UX, solid & slick UI.
+
+Work Log:
+- STATE ON ARRIVAL: a cron round had already committed the Task-34 skeleton (commit 35198fb — lib/player.ts multi-server engine, player.tsx selector chips, store.streamServer, ads.ts cap) but it was NEVER verified or logged. This round audited + browser-verified everything and fixed a total-playback crash it left behind.
+- CRITICAL FIX (player.tsx TDZ crash): the committed code referenced `iframeSrc` at line 133 (stuck-frame detector) BEFORE its `useMemo` declaration at 149 → `ReferenceError: Cannot access 'iframeSrc' before initialization` → the ENTIRE player route crashed with the Next.js error overlay on every play click. Fix: moved the `iframeSrc` memo above the detector block with a comment explaining why. Found via agent-browser (snapshot caught the runtime dialog + stack trace); re-test showed the VidLink frame loading with `primaryColor=00a8e1`.
+- Provider live-audit (curl, movie+TV): VidLink 200 (real Next.js app, preloads the title's TMDB art), VidFast 200 (301 → canonical host resolves in-iframe), VidSrc 200 (Cloudflare managed challenge — passes in real browsers), 2Embed 200 (real player page titled per-film). Rejected candidates: vidsrc.xyz (timeout), multiembed.mov (403). Ordering in STREAM_SERVERS matches ad-load reality: VidLink → VidFast → VidSrc → 2Embed.
+- Browser QA (agent-browser, with provider hosts route-blocked to avoid headless video decode CPU-spin that starves CDP): player route renders header (title/year/runtime/score), Watch party, chips row with ad-load dots (1 green / 2 amber / 3 red) + default Sparkles badge on VidLink; clicking VidFast remounts iframe to vidfast.pro instantly + active ring moves; FULL RELOAD keeps VidFast (store.streamServer persistence works); switch back + TV route `#/tv/1396/play/1/1` builds `vidlink.pro/tv/1396/1/1?primaryColor=00a8e1&autoplayNextEpisode=true&episodeSelector=true`; stuck-detector correctly stays silent when the frame loads an error page (our abort) — it targets true hangs (dead DNS) at 14s; console zero app errors; desktop 1440×900 + mobile 390×844 layouts verified via screenshots (chips scroll horizontally on mobile, compact Party button).
+- Fewer-ads delivery (already in 35198fb, verified good): AD_BREAK_EVERY_MS 0 → 10*60*1000 (max one pre-roll per device per 10 min instead of every stream start); VAST no-fill still skips instantly; kids never see breaks.
+- Footer credit updated: dead "Playback by Videasy" link → "Playback via multiple providers — VidLink · VidFast · VidSrc · 2Embed".
+- lint + tsc clean.
+
+Stage Summary:
+- Playback is FIXED and future-proof: 4 independent providers with one-click failover, device-level server preference, honest ad-load labelling (dots), stuck-frame failover hint at 14s, progress postMessage parsing per-dialect (resume + mini-player survive server switches on VidLink).
+- Crash root cause documented in-code (TDZ ordering) to prevent regression.
+- Files touched: src/components/reelivo/views/player.tsx (TDZ fix), src/components/reelivo/footer.tsx (credit).
+- Unresolved/next: .env evaporation still recurring (add auto-restore guard); shared-lists POST has no UI entry (Task-32 leftover); PAT ghp_5WRf… still exposed — revoke and rotate; consider surfacing "server down?" report button to log provider health over time.

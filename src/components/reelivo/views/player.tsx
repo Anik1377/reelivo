@@ -123,11 +123,18 @@ export function PlayerView({
   const serverIdx = STREAM_SERVERS.findIndex((sv) => sv.id === serverId);
   const nextServer = STREAM_SERVERS[(serverIdx + 1) % STREAM_SERVERS.length];
 
+  const iframeSrc = useMemo(
+    () => playerUrl({ type, id, season: s, episode: e }, serverId),
+    [type, id, s, e, serverId]
+  );
+
   /* Stuck-frame detector: cross-origin iframes always fire onLoad once the
    * document responds — a dead/blocked provider never does. If nothing has
    * loaded ~14s in, surface an honest one-click failover hint. Both flags are
    * keyed to iframeSrc so navigating to another episode/server resets them
-   * without any state-reset effects. */
+   * without any state-reset effects. (iframeSrc is declared BEFORE this block
+   * — the first commit referenced it here before initialization and the whole
+   * player crashed with a TDZ ReferenceError.) */
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const [stuckSrc, setStuckSrc] = useState<string | null>(null);
   const frameIsLoaded = loadedSrc === iframeSrc;
@@ -145,11 +152,6 @@ export function PlayerView({
       description: serverById(id).blurb,
     });
   };
-
-  const iframeSrc = useMemo(
-    () => playerUrl({ type, id, season: s, episode: e }, serverId),
-    [type, id, s, e, serverId]
-  );
 
   /* ------------------------- progress + mini-stream ------------------------ */
   /* Every progress postMessage (VidLink's MEDIA_DATA dialect or the legacy

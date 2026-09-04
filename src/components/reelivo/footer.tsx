@@ -74,16 +74,8 @@ export function Footer({ onShowShortcuts }: { onShowShortcuts?: () => void }) {
             >
               TMDB
             </a>{" "}
-            · Playback by{" "}
-            <a
-              href="https://www.videasy.to"
-              target="_blank"
-              rel="noreferrer"
-              className="underline decoration-white/20 underline-offset-4 transition-colors hover:text-foreground"
-            >
-              Videasy
-            </a>{" "}
-            · Streams are free, ad-supported.
+            · Playback via multiple providers — VidLink · VidFast · VidSrc · 2Embed · Streams are
+            free, ad-supported.
           </p>
           {onShowShortcuts && (
             <button
