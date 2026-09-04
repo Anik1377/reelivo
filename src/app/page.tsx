@@ -97,14 +97,20 @@ function ogCardUrl(t: GoTitle): string {
  * the sharer used, and the card silently drops its art. Forwarded headers
  * (Caddy sets X-Forwarded-Proto / keeps Host) give us the exact public origin
  * every unfurl URL should be absolute against.
+ *
+ * HTTPS IS CANONICAL for public hosts — never trust X-Forwarded-Proto alone.
+ * The sandbox gateway (Caddy :81) terminates plain HTTP internally even when
+ * the platform edge serves TLS, so x-forwarded-proto arrives as "http" and
+ * every og:url / og:image we emitted was http:// — which Chrome and Messenger
+ * literally flag as "Not secure" on the shared link. Public host ⇒ https,
+ * always; localhost dev keeps http.
  */
 async function requestMetadataBase(): Promise<URL> {
   const h = await headers();
   const host =
     h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
   const isLocal = /^(localhost|127\.|\[::1\])(:\d+)?$/.test(host);
-  const proto =
-    h.get("x-forwarded-proto") ?? (isLocal ? "http" : "https");
+  const proto = isLocal ? "http" : "https";
   return new URL(`${proto}://${host}`);
 }
 

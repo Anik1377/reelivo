@@ -17,7 +17,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  /* https fallback — layout metadata is only the base (page.tsx pins the
+   * request host per-request); never emit http:// absolute URLs to crawlers. */
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://localhost:3000"),
   title: "Reelivo — what to watch tonight",
   description:
     "A daily where-to-watch guide. Find something worth your evening across films and series, see where it streams, and press play — free.",

@@ -886,3 +886,24 @@ Stage Summary:
 - Crash root cause documented in-code (TDZ ordering) to prevent regression.
 - Files touched: src/components/reelivo/views/player.tsx (TDZ fix), src/components/reelivo/footer.tsx (credit).
 - Unresolved/next: .env evaporation still recurring (add auto-restore guard); shared-lists POST has no UI entry (Task-32 leftover); PAT ghp_5WRf… still exposed — revoke and rotate; consider surfacing "server down?" report button to log provider health over time.
+
+---
+Task ID: 35
+Agent: Z.ai Code (main)
+Task: User report — "my site got flagged as not secure" — diagnose and fix.
+
+Work Log:
+- ROOT CAUSE (app-side): the app TRUSTED x-forwarded-proto when building canonical URLs. The sandbox gateway chain is platform-TLS → Caddy :81 (plain HTTP, sets X-Forwarded-Proto: http) → Next, so requestMetadataBase() emitted metadataBase as http://<host> and EVERY og:url / og:image / canonical tag was http:// — Chrome labels http pages "Not secure" and Messenger/WhatsApp flag http links on share. Verified by simulating the chain: `curl -H "X-Forwarded-Proto: http" -H "X-Forwarded-Host: …" /?go=movie/550` previously produced http:// og tags.
+- FIXES (4 layers):
+  1. page.tsx requestMetadataBase(): public host ⇒ https ALWAYS (x-forwarded-proto no longer trusted; localhost dev keeps http). Post-fix simulation of the same bad chain emits `og:url https://…/?go=movie/550` + `og:image https://…/api/og?...`.
+  2. layout.tsx metadataBase fallback: http://localhost:3000 → https://localhost:3000 (base only; page pins per-request).
+  3. detail.tsx Share button: canonical origin upgrades http→https for non-local hosts, so links users copy/share are always https even if the tab somehow runs on plain http.
+  4. next.config.ts security headers on /:path*: Strict-Transport-Security (1y, includeSubDomains), X-Content-Type-Options: nosniff, Referrer-Policy: strict-origin-when-cross-origin, Content-Security-Policy: upgrade-insecure-requests (auto-upgrades stray http subresources on https pages; inert on http), Permissions-Policy (camera/geolocation/display-capture/payment off). Deliberately NOT set: X-Frame-Options/frame-ancestors (would blank the sandbox Preview Panel's cross-origin iframe) and no microphone lockout (voice search needs it).
+- Swept for other http emitters: manifest.webmanifest (relative ✓), sw.js (only xmlns identifiers ✓), api/og (https TMDB fetch; xmlns strings are XML namespaces, not fetched ✓), robots.txt ✓, player iframes already https ✓.
+- Verified: header curl shows all 5 security headers live; OG simulation emits https; agent-browser relaunch → app renders clean post-restart (home hero, nav, sections); lint + tsc clean.
+- HOST-SIDE TRUTH (must tell user): browser "Not secure" in the ADDRESS BAR is about the serving origin's TLS, not app code. The sandbox preview is TLS-terminated by the platform (fine), but if their PUBLIC deployment (custom domain/VPS) serves plain http, only the host can fix it: enable Cloudflare "Always Use HTTPS" + edge cert, or Let's Encrypt/certbot on the box, or deploy on Vercel/Netlify (auto-TLS). The app now guarantees it never emits or propagates http:// links, so once the host serves https the flag disappears everywhere (address bar, Messenger, WhatsApp).
+
+Stage Summary:
+- Every URL the app emits (og:url, og:image, twitter, canonical, share links) is now canonically https for public hosts, regardless of what the proxy chain claims; five security headers shipped.
+- Files touched: src/app/page.tsx, src/app/layout.tsx, src/components/reelivo/views/detail.tsx, next.config.ts.
+- Unresolved/next: if the user's real domain serves plain http they MUST enable TLS at the host (only they control DNS/certs) — Cloudflare free tier is the one-click path; PAT ghp_5WRf… still exposed — revoke.

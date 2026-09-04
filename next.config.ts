@@ -1,5 +1,27 @@
 import type { NextConfig } from "next";
 
+/*
+ * Security headers — the browser-facing half of the "Not secure" fix.
+ *
+ * - Strict-Transport-Security: remembered by browsers once the public host
+ *   serves real TLS; ignored (harmless) over plain http.
+ * - Content-Security-Policy: upgrade-insecure-requests — on an https page any
+ *   stray http:// subresource is auto-upgraded, killing mixed-content
+ *   warnings; inert on http pages. Deliberately the ONLY directive: a full
+ *   source list would fight Next's inline runtime and the provider iframes.
+ * - No X-Frame-Options / frame-ancestors ON PURPOSE — the sandbox Preview
+ *   Panel embeds the app in a cross-origin iframe, and framing protection
+ *   would blank it out.
+ * - No microphone restriction — Reelivo has voice search.
+ */
+const securityHeaders = [
+  { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Content-Security-Policy", value: "upgrade-insecure-requests" },
+  { key: "Permissions-Policy", value: "camera=(), geolocation=(), display-capture=(), payment=()" },
+];
+
 const nextConfig: NextConfig = {
   output: "standalone",
   /* config options here */
@@ -7,6 +29,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
 };
 
 export default nextConfig;

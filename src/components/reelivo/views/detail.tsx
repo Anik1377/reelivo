@@ -294,8 +294,16 @@ function TitleBlock({
              * ever saw the generic home card. `?go=type/id` keeps the same
              * destination but lets generateMetadata render the per-title OG
              * card — the client converts it back into the hash route on
-             * mount (app.tsx). */
-            const url = `${window.location.origin}/?go=${type}/${detail.id}`;
+             * mount (app.tsx).
+             * Shared URLs are CANONICALLY https: browsers + chat apps flag
+             * http:// links as "Not secure", and if the tab ever runs on a
+             * plain-http origin (proxy chain quirk) we must not propagate
+             * that scheme into links people paste around. */
+            const o = window.location.origin;
+            const canonicalOrigin = /^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(o)
+              ? o
+              : o.replace(/^http:/, "https:");
+            const url = `${canonicalOrigin}/?go=${type}/${detail.id}`;
             const share = (navigator as Navigator & { share?: (d: { title: string; url: string }) => Promise<void> }).share;
             if (typeof share === "function") {
               navigator
