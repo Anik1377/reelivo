@@ -1132,3 +1132,25 @@ Stage Summary:
 - The intro is now a true cinematic logo premiere built around the actual Reelivo lockup (play-tile mark + reelivo wordmark), with professional assembly animation, beat-mapped synthesised score, and every v1 hard rule preserved (once/session, skippable, autoplay-safe, reduced-motion, never over playback).
 - Lesson recorded: Turbopack can serve stale compiled CSS after edits — dev restart is NOT enough; wipe .next entirely when keyframe/CSS edits don't appear.
 - Next-phase candidates: PWA splash screens (apple-touch-startup-image) matching the intro; branded loading skeletons; PAT ghp_5WRf… STILL exposed — revoke.
+
+---
+Task ID: 45
+Agent: Z.ai Code (main)
+Task: User: "dont use that — make a new one, slick black, animated, custom, and dont use random icons as logo our logo is only reelivo, with the dot being the brand color and i see you put a triangle in logo dont put it make it how it was before"
+
+Work Log:
+- BRAND CORRECTION (user directive): the logo is ONLY the wordmark "reelivo." with the full stop in brand cyan — no play-tile, no triangle terminal, no icons. Restored the pre-Task-43 wordmark exactly: `reelivo<span class="text-primary">.</span>`.
+- logo.tsx rewritten: ReelivoWordmark = name + cyan stop; ReelivoMark + ReelivoLockup DELETED (no icon-logo can resurface). All importers inherit the fix: top-bar, footer, ad-break (2 spots), player back-button.
+- WATERMARK (brand/watermark.tsx): pill is now the wordmark alone — verified "reelivo." text, pointer-events:none, z-5 above the provider iframe.
+- profiles.tsx: removed the ReelivoMark from the "Who's watching" wall (kicker + headline only) + import.
+- OG route (api/og/route.tsx): MARK_SRC tile SVG deleted; all 3 card placements now render text "reelivo." with the ACCENT-coloured stop (generic card 132px, per-title card 34px).
+- ICON SET regenerated (public/: favicon-32, icon-192, icon-512, icon-maskable-512, apple-touch-icon) via new .qa-tmp/brand-icons-v5.mjs: custom geometric "r." monogram — white stem+shoulder path and cyan dot on slick-black radial tile; full-bleed variants for maskable/apple. Pure paths, no font dependency; legible at 32px (nearest-neighbour zoom verified). sw.js VERSION v4→v5 so cached tile icons purge.
+- INTRO v3 "the name is the logo" (intro-loader.tsx rewritten): pure typography on slick black — letters of "reelivo" rise out of per-letter baseline masks (re-lift, 90ms stagger from 350ms), the cyan STOP drops from above and squashes onto the baseline (re-dot, 1650ms), IMPACT at 2080ms = bloom flash + ring ripple radiating from the dot (re-flash/re-ring) on the score's thump, tagline 2550ms, hairline 2700ms, curtain 3650ms. Score re-beat-mapped (hum under letters → swell+riser → impact 2.04s → braam → shimmer). All v1 hard rules kept: once/session, Skip/Escape/tap-after-unlock, autoplay-safe pill, reduced-motion static path, never on playback deep-links, ?introhold QA hook.
+- CSS: replaced the whole v2 keyframe block — new re-lift/re-dot/re-ring; kept re-glow/re-rise/re-hairline/re-flash/re-grain/.intro-out; deleted tile-era keyframes (re-beam/re-draw/re-wipe/re-perf/re-tri/re-glint/re-letter/re-term/re-shine/re-svg-part) so icon-language animations can't resurface. Shine bar dropped deliberately (parked as a grey slab over the text — not slick).
+- QA BUGS FIXED: (1) bloom/ring anchor — absolutely-positioned wrapper inside a size-0 anchor shrink-wraps to width 0, so -translate-x-1/2 was a 0px shift; x-centring never applied. Fixed with negative half-size margins (-ml/-mt-[0.25em|0.45em]) which transform animations can't override; anchor tuned to the glyph's visual centre (bottom 0.2em / left 0.12em, measured against Manrope's metrics). (2) Harness timing flake: intro sometimes finished before the first post-reload eval — reliable pattern is removeItem+location.reload then eval.
+- LOCAL QA (agent-browser): frozen beats @1100 (letters mid-cascade out of masks), @2200 (dot landed, bloom+ring centred on the glyph), @3450 (settled lockup + tagline + hairline); skip → unmount + flag + scroll restore; reload → no replay; reduced-motion → gone ~1.3s; mobile 390×844 clean (no overflow, buttons clear); header/top-bar + player back-button + watermark all "reelivo." with cyan stop (text + text-primary verified); profile wall has no mark; OG 200 image/png wordmark-only; favicon-32 200 and legible; lint + tsc clean.
+
+Stage Summary:
+- The brand is now exactly what the user defined: the logo is "reelivo." — the name with its cyan stop — everywhere (header, footer, ad-break, player, watermark, profile wall, OG cards, intro, app icons). No tile, no triangle, no icon-logo anywhere.
+- Intro is a slick-black, custom-animated wordmark premiere (letter-mask cascade → cyan dot drop → impact bloom + ring), beat-mapped to the synthesised score, with every UX guard preserved.
+- Next-phase candidates: embed Manrope in /api/og (satori currently falls back to a system font); PWA splash screens; PAT ghp_5WRf… STILL exposed — revoke.

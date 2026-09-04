@@ -460,89 +460,60 @@ label {
     transform 500ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ---------------- intro v2 — "the premiere" ---------------- */
-/* Cinematic logo reveal: projector beam → mark assembly → wordmark cascade
- * → shine sweep → curtain. All decorative; reduced-motion renders static. */
+/* ---------------- intro v3 — "the name is the logo" ---------------- */
+/* Slick-black cinematic wordmark reveal: the letters of "reelivo" rise out
+ * of a baseline mask one by one, the cyan stop drops and lands with an
+ * impact bloom + ring ripple, a light sweeps the wordmark, curtain. No
+ * icons, no marks — the name with its brand-coloured stop IS the logo.
+ * All decorative; reduced-motion renders static. */
 
-/* SVG parts need their own transform box to animate around themselves */
-.re-svg-part {
-  transform-box: fill-box;
-  transform-origin: center;
-}
-/* projector beam: a hairline igniting from the center outward, then handing
- * the light off to the tile as it dissolves */
-@keyframes re-beam {
-  0% {
-    transform: scaleX(0);
-    opacity: 0;
-  }
-  30% {
-    opacity: 1;
-  }
-  75% {
-    transform: scaleX(1);
-    opacity: 0.85;
-  }
-  100% {
-    transform: scaleX(1);
-    opacity: 0;
-  }
-}
-/* tile outline: a pen drawing the rounded square (pathLength=100) */
-@keyframes re-draw {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-/* tile fill: a hard left→right wipe via clip-path */
-@keyframes re-wipe {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-}
-/* film perforations thread themselves into place */
-@keyframes re-perf {
+/* each letter rises out of an overflow-hidden baseline mask */
+@keyframes re-lift {
   0% {
     opacity: 0;
-    transform: translateY(-7px);
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(1.5px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-/* the play triangle glides home with a spring overshoot */
-@keyframes re-tri {
-  0% {
-    opacity: 0;
-    transform: translateX(-16px);
+    transform: translateY(108%) rotate(4deg);
   }
   55% {
     opacity: 1;
-    transform: translateX(2.5px);
   }
   100% {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0) rotate(0deg);
   }
 }
-/* a lens glint crossing inside the tile while it assembles */
-@keyframes re-glint {
-  from {
-    transform: translateX(-34px) rotate(18deg);
+/* the cyan stop drops from above and squashes on landing */
+@keyframes re-dot {
+  0% {
+    opacity: 0;
+    transform: translateY(-0.62em);
   }
-  to {
-    transform: translateX(84px) rotate(18deg);
+  45% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  62% {
+    transform: translateY(0) scale(1.28, 0.6);
+  }
+  80% {
+    transform: translateY(0) scale(0.94, 1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
-/* impact bloom when the triangle lands */
+/* ring ripple radiating from the dot's landing point */
+@keyframes re-ring {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.25);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3.4);
+  }
+}
+/* impact bloom (shared with v2's flash language) */
 @keyframes re-flash {
   0% {
     opacity: 0;
@@ -555,46 +526,6 @@ label {
   100% {
     opacity: 0;
     transform: scale(1.35);
-  }
-}
-/* each wordmark letter: blur-rise with a tiny settle */
-@keyframes re-letter {
-  0% {
-    opacity: 0;
-    transform: translateY(18px) scale(0.88);
-    filter: blur(10px);
-  }
-  60% {
-    filter: blur(0);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
-  }
-}
-/* the terminal triangle popping on the beat */
-@keyframes re-term {
-  0% {
-    opacity: 0;
-    transform: scale(0.2);
-  }
-  55% {
-    opacity: 1;
-    transform: scale(1.45);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-/* soft light bar sweeping across the wordmark */
-@keyframes re-shine {
-  from {
-    transform: translateX(-130%) skewX(-18deg);
-  }
-  to {
-    transform: translateX(320%) skewX(-18deg);
   }
 }
 /* 35mm grain flicker (steps() so it jitters like real film) */

@@ -10,8 +10,10 @@
  * pause/seek/fullscreen. The faint scrim + drop shadow keep it legible over
  * bright scenes, and motion-safe breathing keeps it feeling alive without
  * ever distracting (or violating prefers-reduced-motion).
+ *
+ * The bug is the wordmark alone — "reelivo." with the cyan stop. No icons.
  */
-import { ReelivoMark } from "./logo";
+import { ReelivoWordmark } from "./logo";
 
 export function PlayerWatermark() {
   return (
@@ -20,11 +22,8 @@ export function PlayerWatermark() {
       className="pointer-events-none absolute right-2.5 top-2.5 z-[5] select-none md:right-3 md:top-3"
       data-testid="player-watermark"
     >
-      <div className="flex items-center gap-1.5 rounded-full bg-black/40 py-1 pl-1.5 pr-2.5 ring-1 ring-white/15 backdrop-blur-[2px] motion-safe:animate-[wm-breathe_7s_ease-in-out_infinite]">
-        <ReelivoMark className="size-4" />
-        <span className="display text-[12px] font-extrabold leading-none tracking-tight text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
-          reelivo
-        </span>
+      <div className="flex items-center rounded-full bg-black/40 px-3 py-1.5 ring-1 ring-white/15 backdrop-blur-[2px] motion-safe:animate-[wm-breathe_7s_ease-in-out_infinite]">
+        <ReelivoWordmark className="text-[12px] text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]" />
       </div>
     </div>
   );

@@ -19,11 +19,8 @@ const STAR_SRC = `data:image/svg+xml;base64,${Buffer.from(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${ACCENT}"><path d="M12 2.5l2.95 6.31 6.92.83-5.11 4.75 1.35 6.86L12 17.77l-6.11 3.48 1.35-6.86-5.11-4.75 6.92-.83z"/></svg>`
 ).toString("base64")}`;
 
-/* The Reelivo play-tile mark (same artwork as components/reelivo/brand/logo.tsx)
- * so share cards carry the real logo instead of a text-only wordmark. */
-const MARK_SRC = `data:image/svg+xml;base64,${Buffer.from(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2ec7f5"/><stop offset="1" stop-color="#0071a4"/></linearGradient></defs><rect x="1" y="1" width="62" height="62" rx="16" fill="url(#g)"/><rect x="1.75" y="1.75" width="60.5" height="60.5" rx="15.25" fill="none" stroke="rgba(255,255,255,0.30)" stroke-width="1.5"/><rect x="11.5" y="15" width="4.5" height="7" rx="2" fill="rgba(0,20,30,0.42)"/><rect x="11.5" y="28.5" width="4.5" height="7" rx="2" fill="rgba(0,20,30,0.42)"/><rect x="11.5" y="42" width="4.5" height="7" rx="2" fill="rgba(0,20,30,0.42)"/><path d="M27.5 21.5 L45 32 L27.5 42.5 Z" fill="#ffffff" stroke="#ffffff" stroke-width="3.5" stroke-linejoin="round"/></svg>`
-).toString("base64")}`;
+/* Share cards carry the WORDMARK ONLY — "reelivo" with the cyan stop.
+ * The logo is the name; no icon artwork. */
 
 function esc(s: string): string {
   // satori renders text as-is; this just guards against absurd lengths
@@ -72,16 +69,16 @@ export async function GET(req: NextRequest) {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <img src={MARK_SRC} alt="" width={30} height={30} />
             <div style={{ fontSize: 26, letterSpacing: 6, color: "rgba(255,255,255,0.55)" }}>
               WHAT TO WATCH TONIGHT
             </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 30, fontSize: 132, color: "#fff" }}>
-              <img src={MARK_SRC} alt="" width={106} height={106} />
-              <span>reelivo</span>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 30, fontSize: 132, color: "#fff" }}>
+              <span>
+                reelivo<span style={{ color: ACCENT }}>.</span>
+              </span>
             </div>
             <div style={{ fontSize: 30, color: "rgba(255,255,255,0.62)", display: "flex", gap: 22 }}>
               <span>Films &amp; series</span>
@@ -197,9 +194,10 @@ export async function GET(req: NextRequest) {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 34, color: "#fff" }}>
-              <img src={MARK_SRC} alt="" width={38} height={38} />
-              <span>reelivo</span>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 14, fontSize: 34, color: "#fff" }}>
+              <span>
+                reelivo<span style={{ color: ACCENT }}>.</span>
+              </span>
             </div>
             {free && (
               <div
