@@ -943,3 +943,18 @@ Stage Summary:
 - Shipped code is now 100% Videasy-free and 100% https-canonical (5 layers: request metadataBase, layout fallback, NEXT_PUBLIC_SITE_URL coercion, share-button upgrade, SW cache purge).
 - Files touched: README.md, src/lib/player.ts, src/components/reelivo/views/player.tsx (comment), src/app/layout.tsx, public/sw.js.
 - Next: user must confirm the Vercel deployment actually contains these commits (check deployment creation time vs push time, or Vercel dashboard → Deployments → latest commit sha); re-scrape one link in Facebook Sharing Debugger and compare — that's the definitive test of what crawlers see now.
+
+---
+Task ID: 37 / closure
+Agent: Z.ai Code (main)
+Task: User confirmed — "it fixed now" (Not-secure flag gone after redeploying the Task 35/37 https fixes).
+
+Work Log:
+- User's confirmation validates the diagnosis chain: address-bar "Not secure" was the old deployment still serving pre-fix code; the 5-layer https canonicalization + security headers + SW v3 cache purge resolved it once Vercel picked up commit e7eac07+8a29308.
+- Independent re-verification this round: `rg -i "videasy|vid easy"` across repo (excl. node_modules/.next/worklog) → ZERO matches in shipped code (only historical worklog audit trail, intentionally kept). Lint + tsc clean. agent-browser smoke (fresh session): home renders (hero carousel, 13 sections, 8 nav links, hscroll 0), #/movie/155 renders with Share button, console sweep → no errors/warnings/hydration lines, no videasy references at runtime.
+- Services healthy: dev server 200, party socket.io handshake OK (sid returned), Caddy gateway 200, .env intact.
+
+Stage Summary:
+- TASK 37 CLOSED. Site is: 100% videasy-free, 100% https-canonical, verified end-to-end, and user-confirmed fixed.
+- Reminder for user: revoke GitHub PAT ghp_5WRf… (used in pushes this whole project).
+- Next: autonomous feature/styling round per standing instructions.

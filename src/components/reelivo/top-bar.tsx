@@ -7,6 +7,7 @@ import { useReelivo } from "@/lib/store";
 import { useMounted } from "./media";
 import { Kbd } from "./bits";
 import { ProfileAvatar, openProfileEditor, openProfilePin } from "./profiles";
+import { ReminderCenter } from "./reminder-center";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -151,6 +152,8 @@ export function TopBar({
               </span>
             )}
           </a>
+          {/* release reminders — global face of the calendar's Remind-me bells */}
+          <ReminderCenter />
           {/* profile switcher — the whole point of profiles is fast person-swapping.
            * ProfileAvatar(undefined) renders the generic user tile, so the SSR
            * markup and the first client render (store not yet rehydrated) are
