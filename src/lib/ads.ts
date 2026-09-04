@@ -46,42 +46,43 @@ export const sponsorLinkProps: AnchorHTMLAttributes<HTMLAnchorElement> | null =
     ? { href: HILLTOP_DIRECT_LINK, target: "_blank", rel: "sponsored noopener noreferrer" }
     : null;
 
-/* Pre-roll cadence — a millisecond window between pre-rolls (one per device).
- * 2025: the user asked for FEWER ads — 10 minutes means bingeing a season
- * shows at most one break every ten minutes instead of one per stream start.
- * Whether an ad actually PLAYS is still up to HilltopAds inventory: a no-fill
- * reply = the stream starts instantly. 0 would restore every-play breaks. */
+/* --------------------------- ad cadence policy --------------------------- */
+/* Pre-rolls are UNCONDITIONAL: every playback start (any title/season/episode)
+ * requests the zone tag and plays one ad when there is fill. User directive
+ * 2025: "the ad should always play at the beginning" — the old per-device
+ * 10-minute pre-roll cap (localStorage reelivo-adbreak-at) was REMOVED; it is
+ * exactly why the player used to skip the ad on most plays.
+ *
+ * Mid-rolls cover the other half: while the viewer keeps watching, an ad
+ * break interrupts the stream every AD_BREAK_EVERY_MS of accumulated,
+ * tab-visible playback time (the scheduler lives in views/player.tsx; here
+ * we only own the interval). Whether an ad actually PLAYS is still up to
+ * HilltopAds inventory — a no-fill reply = the break ends instantly. */
 export const AD_BREAK_EVERY_MS = 10 * 60 * 1000;
 
-const CAP_KEY = "reelivo-adbreak-at";
-
-export function shouldShowAdBreak(): boolean {
-  if (!ADS_ENABLED || typeof window === "undefined") return false;
-  if (AD_BREAK_EVERY_MS <= 0) return true; // every play earns a pre-roll request
-  try {
-    const last = Number(localStorage.getItem(CAP_KEY) ?? 0);
-    return !Number.isFinite(last) || Date.now() - last >= AD_BREAK_EVERY_MS;
-  } catch {
-    return true; // storage unavailable (private mode) — the ad plays regardless
+/** Mid-roll interval, with a QA override: `?adtest=1&adinterval=20` compresses
+ * breaks to every 20 s so the scheduler can be watched end-to-end without a
+ * ten-minute wait. Only honored while ?adtest is present — regular traffic
+ * always gets the production cadence. Floor of 5 s keeps absurd values out. */
+export function midRollIntervalMs(): number {
+  if (typeof window === "undefined") return AD_BREAK_EVERY_MS;
+  if (adTestMode()) {
+    try {
+      const sec = Number(new URLSearchParams(window.location.search).get("adinterval"));
+      if (Number.isFinite(sec) && sec >= 5) return sec * 1000;
+    } catch {
+      /* malformed query — production cadence */
+    }
   }
+  return AD_BREAK_EVERY_MS;
 }
 
-/** Record that an ad just played — call when the break STARTS, so a reload
- * mid-ad can't farm a fresh window. */
-export function markAdBreakShown() {
-  try {
-    localStorage.setItem(CAP_KEY, String(Date.now()));
-  } catch {
-    /* cap simply won't persist */
-  }
-}
-
-/** QA hook: add ?adtest=1 to any URL to force the pre-roll with a bundled
- * mock VAST (cap bypassed) — exercises the full ad flow even when the live
- * zone has no fill. ?adtest=live forces the REAL zone instead (cap also
- * bypassed) — a one-URL way to watch the browser hit windy-imagination.com
- * in the network panel and confirm HilltopAds is receiving requests.
- * No-op outside the browser. */
+/** QA hook: add ?adtest=1 to any URL to force the ad break with a bundled
+ * mock VAST — exercises the full ad flow even when the live zone has no fill.
+ * ?adtest=live forces the REAL zone instead — a one-URL way to watch the
+ * browser hit windy-imagination.com in the network panel and confirm
+ * HilltopAds is receiving requests. Pairs with &adinterval=<sec> to compress
+ * mid-roll cadence. No-op outside the browser. */
 export function adTestMode(): boolean {
   if (typeof window === "undefined") return false;
   try {

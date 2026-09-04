@@ -63,3 +63,4 @@ tests/
 db/*.db
 db/*.db-journal
 github-*.sh
+.qa-tmp/

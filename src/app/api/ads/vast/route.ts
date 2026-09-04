@@ -83,7 +83,7 @@ function mockVast(origin: string): string {
               <ClickThrough><![CDATA[https://example.com/mock-click]]></ClickThrough>
             </VideoClicks>
             <MediaFiles>
-              <MediaFile delivery="progressive" type="video/mp4" bitrate="400" width="320" height="176" codec="h264"><![CDATA[https://www.w3schools.com/html/mov_bbb.mp4]]></MediaFile>
+              <MediaFile delivery="progressive" type="video/mp4" bitrate="400" width="320" height="176" codec="h264"><![CDATA[https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4]]></MediaFile>
             </MediaFiles>
           </Linear>
         </Creative>

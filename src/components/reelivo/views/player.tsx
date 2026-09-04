@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, type FormEvent } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -28,7 +28,8 @@ import { poster, runtime as fmtRuntime, score, still, titleOf, yearOf } from "@/
 import type { MovieDetail, Paged, MediaItem, TvDetail, TvSeason } from "@/lib/tmdb-types";
 import { Img, LostLink, usePrefersReducedMotion } from "../bits";
 import { toSavedItem } from "../media";
-import { AdBreakGate } from "../ad-break";
+import { AdBreakGate, MidRollAdBreak } from "../ad-break";
+import { midRollIntervalMs } from "@/lib/ads";
 import {
   Sheet,
   SheetContent,
@@ -48,6 +49,60 @@ const AD_LOAD_DOT: Record<1 | 2 | 3, string> = {
 
 function labelOf(d: Detail): string {
   return "title" in d ? d.title : d.name;
+}
+
+/* ------------------------- mid-roll ad controller ------------------------- */
+/* Owns the "continuous watching" timer for ONE play target — the parent
+ * mounts it with key={adGateKey} so a new title/episode remounts a fresh
+ * clock with zero reset effects. Once armed (pre-roll gate gone, profile not
+ * kids), it fires an overlay break every midRollIntervalMs() — 10 min in
+ * production, ?adtest&adinterval=<s> for QA. The clock only accumulates
+ * while the tab is VISIBLE and neither a break nor the watch-party sheet is
+ * up: background tabs and social sessions never earn silent impressions
+ * Hilltop would discount as invalid traffic. Each break is a fresh
+ * browser-direct zone request plus its own beacon chain — exactly as
+ * countable as the pre-roll. */
+function MidRollController({
+  armed,
+  partyOpenRef,
+  onExit,
+}: {
+  armed: boolean;
+  partyOpenRef: { current: boolean };
+  onExit?: () => void;
+}) {
+  const [seq, setSeq] = useState(0);
+  const [open, setOpen] = useState(false);
+  const openRef = useRef(false);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
+
+  const fire = useCallback(() => {
+    setSeq((n) => n + 1);
+    setOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (!armed) return;
+    let elapsed = 0;
+    let last = Date.now();
+    const t = setInterval(() => {
+      const now = Date.now();
+      if (!document.hidden && !openRef.current && !partyOpenRef.current) {
+        elapsed += now - last;
+      }
+      last = now;
+      if (elapsed >= midRollIntervalMs()) {
+        elapsed = 0;
+        fire(); // async callback — not a setState-in-effect violation
+      }
+    }, 500);
+    return () => clearInterval(t);
+  }, [armed, fire, partyOpenRef]);
+
+  if (!open) return null;
+  return <MidRollAdBreak key={`mid-${seq}`} onExit={onExit} onDone={() => setOpen(false)} />;
 }
 
 export function PlayerView({
@@ -268,8 +323,9 @@ export function PlayerView({
 
   /* ------------------------- pre-roll ad break ------------------------- */
   /* AdBreakGate (keyed per title/season/episode) overlays the frame while the
-   * stream preloads underneath; the cap lives in lib/ads.ts and kids profiles
-   * never see it. */
+   * stream preloads underneath — ALWAYS, on every playback start (the old
+   * per-device 10-minute cap is gone: user directive 2025, "the ad should
+   * always play at the beginning"). Kids profiles never see any of it. */
   const kidsActive = useReelivo(
     (g) => g.profiles.find((p) => p.id === g.activeProfileId)?.kids ?? false
   );
@@ -305,6 +361,15 @@ export function PlayerView({
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [backHref]);
+
+  /* ------------------------- mid-roll ad breaks ------------------------- */
+  /* The other half of "the ad always plays": MidRollController (keyed per
+   * target below) interrupts CONTINUOUS watching with an ad break every 10
+   * minutes of tab-visible playback. The state records WHICH target's
+   * pre-roll has finished — not a boolean — so a play→play navigation (next
+   * episode) leaves it pointing at the old key: the fresh controller stays
+   * disarmed until the new pre-roll gate completes, with no reset effect. */
+  const [preRollDoneFor, setPreRollDoneFor] = useState<string | null>(null);
 
   const title = detail.data ? labelOf(detail.data) : "Loading…";
   const tv = type === "tv" ? (detail.data as TvDetail | undefined) : undefined;
@@ -435,7 +500,19 @@ export function PlayerView({
                 />
                 {/* preloads underneath the break; never on kids profiles */}
                 {!kidsActive && (
-                  <AdBreakGate key={adGateKey} onExit={() => navigate(backHref)} />
+                  <AdBreakGate
+                    key={`gate-${adGateKey}`}
+                    onExit={() => navigate(backHref)}
+                    onFinish={() => setPreRollDoneFor(adGateKey)}
+                  />
+                )}
+                {!kidsActive && (
+                  <MidRollController
+                    key={`mid-${adGateKey}`}
+                    armed={preRollDoneFor === adGateKey}
+                    partyOpenRef={partyOpenRef}
+                    onExit={() => navigate(backHref)}
+                  />
                 )}
               </>
             )}

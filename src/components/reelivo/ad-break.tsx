@@ -10,43 +10,89 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { adTestFlavor, adTestMode, markAdBreakShown, shouldShowAdBreak, HILLTOP_VAST_ZONE } from "@/lib/ads";
+import { adTestFlavor, adTestMode, HILLTOP_VAST_ZONE } from "@/lib/ads";
 import { fireBeacon, parseVast, pickAd, pickMediaFile, type VastLinearAd } from "@/lib/vast";
 
-/* Pre-roll VIDEO ad — a real VAST linear ad played in the frame before the
- * stream takes over (lib/vast.ts parses the HilltopAds zone tag, requested
- * DIRECTLY from this browser — that is the request HilltopAds counts — with
- * the same-origin proxy as a fallback; see lib/ads.ts).
+/* Pre-roll + mid-roll VIDEO ads — real VAST linear ads played over the frame
+ * (lib/vast.ts parses the HilltopAds zone tag, requested DIRECTLY from this
+ * browser — that is the request HilltopAds counts — with the same-origin
+ * proxy as a fallback; see lib/ads.ts).
  *
- * Behaviour is the honest-streaming version of a pre-roll:
+ * Two placements share one player:
+ *  - AdBreakGate ("pre"): ALWAYS overlays every playback start — no per-device
+ *    cap anymore (user directive 2025: "the ad should always play at the
+ *    beginning"). Keyed per title/season/episode by the player view.
+ *  - MidRollAdBreak ("mid"): mounted by the player's scheduler every
+ *    AD_BREAK_EVERY_MS of continuous watching (see midRollIntervalMs).
+ *
+ * Behaviour is the honest-streaming version of an ad break:
  *  - starts MUTED (our rubric promises "no surprise audio"; one tap unmutes)
  *  - a Skip pill counts down to the zone's skipoffset, then skips instantly
- *  - impression / start / quartile / progress beacons fire as the ad runs
+ *  - impression / start / quartile / progress beacons fire as the ad runs —
+ *    every break (pre OR mid) is a fresh browser-direct zone request Hilltop
+ *    can count, with its own impression beacons
  *  - tapping the ad opens the advertiser in a new tab (VAST ClickThrough)
  *  - no fill / fetch failure / broken media → the stream starts immediately
- *  - requested at most once per AD_BREAK_EVERY_MS per device (?adtest
- *    bypasses the cap); a no-fill reply means the stream starts instantly
- *  - kids profiles never see it
+ *  - kids profiles never see either placement
  */
 
 type Phase = "loading" | "playing" | "gesture";
+type Variant = "pre" | "mid";
+
+const COPY: Record<Variant, { label: string; labelLong: string; loading: string; countdown: (s: string) => string; starting: string }> = {
+  pre: {
+    label: "Ad",
+    labelLong: "Advertisement",
+    loading: "Getting your stream ready…",
+    countdown: (s) => `Your stream starts in ${s}`,
+    starting: "Starting…",
+  },
+  mid: {
+    label: "Ad break",
+    labelLong: "Ad break",
+    loading: "Short break — your stream resumes right after…",
+    countdown: (s) => `Your stream resumes in ${s}`,
+    starting: "Resuming…",
+  },
+};
 
 /* One ad decision per play target — remounts whenever the keyed target
  * changes, so every play (any title / season / episode) earns its own
- * pre-roll request. */
-export function AdBreakGate({ onExit }: { onExit?: () => void }) {
-  const [active] = useState(() => shouldShowAdBreak() || adTestMode());
+ * pre-roll request. onFinish fires when the gate is gone (ad finished,
+ * skipped, no-fill or error) — the player starts its mid-roll clock then. */
+export function AdBreakGate({ onExit, onFinish }: { onExit?: () => void; onFinish?: () => void }) {
   const [done, setDone] = useState(false);
+  const finishedRef = useRef(false);
 
-  useEffect(() => {
-    if (active) markAdBreakShown(); // bookkeeping stamp (cadence is currently uncapped)
-  }, [active]);
+  const finish = useCallback(() => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    onFinish?.(); // the player starts its mid-roll clock only after this
+    setDone(true);
+  }, [onFinish]);
 
-  if (!active || done) return null;
-  return <VastAdBreak onDone={() => setDone(true)} onExit={onExit} />;
+  if (done) return null;
+  return <VastAdBreak variant="pre" onDone={finish} onExit={onExit} />;
 }
 
-function VastAdBreak({ onDone, onExit }: { onDone: () => void; onExit?: () => void }) {
+/* Mid-roll: the player mounts this with a fresh key per scheduled break.
+ * Same machinery as the pre-roll — a browser-direct zone request plus one
+ * linear ad with its full beacon chain — just framed as an interruption of
+ * an ongoing stream instead of its opening. */
+export function MidRollAdBreak({ onDone, onExit }: { onDone: () => void; onExit?: () => void }) {
+  return <VastAdBreak variant="mid" onDone={onDone} onExit={onExit} />;
+}
+
+function VastAdBreak({
+  onDone,
+  onExit,
+  variant = "pre",
+}: {
+  onDone: () => void;
+  onExit?: () => void;
+  variant?: Variant;
+}) {
+  const copy = COPY[variant];
   const [phase, setPhase] = useState<Phase>("loading");
   const [ad, setAd] = useState<VastLinearAd | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
@@ -273,7 +319,11 @@ function VastAdBreak({ onDone, onExit }: { onDone: () => void; onExit?: () => vo
   return (
     <div
       role="dialog"
-      aria-label="Advertisement — your stream starts after the ad"
+      aria-label={
+        variant === "pre"
+          ? "Advertisement — your stream starts after the ad"
+          : "Advertisement break — your stream resumes after the ad"
+      }
       className={`fixed inset-0 z-50 overflow-hidden bg-black transition-opacity duration-500 md:absolute md:z-10 ${
         fading ? "pointer-events-none opacity-0" : "opacity-100"
       }`}
@@ -294,7 +344,7 @@ function VastAdBreak({ onDone, onExit }: { onDone: () => void; onExit?: () => vo
         <div className="absolute inset-0 grid place-items-center">
           <span className="inline-flex items-center gap-2 text-sm text-white/60">
             <Loader2 className="size-4 animate-spin" aria-hidden />
-            Getting your stream ready…
+            {copy.loading}
           </span>
         </div>
       )}
@@ -353,18 +403,20 @@ function VastAdBreak({ onDone, onExit }: { onDone: () => void; onExit?: () => vo
               </button>
             )}
             <span className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.22em] text-primary-foreground shadow-[0_2px_14px_rgba(0,168,225,0.45)]">
-              Ad
+              {copy.label}
               <span className="ml-1.5 hidden font-semibold normal-case tracking-normal sm:inline">
-                Advertisement
+                {copy.labelLong}
               </span>
             </span>
           </div>
           <span className="tabular rounded-full border border-white/15 bg-black/50 px-3 py-1 text-xs font-medium text-white/85 backdrop-blur-sm">
             {hasCountdown
               ? remaining > 0
-                ? `Your stream starts in 0:${String(remaining).padStart(2, "0")}`
-                : "Starting…"
-              : "Your stream starts shortly"}
+                ? copy.countdown(`0:${String(remaining).padStart(2, "0")}`)
+                : copy.starting
+              : variant === "pre"
+                ? "Your stream starts shortly"
+                : "Your stream resumes shortly"}
           </span>
         </div>
 
