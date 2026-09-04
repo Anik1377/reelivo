@@ -59,7 +59,7 @@ export function SaveButton({
       type="button"
       onClick={onSave}
       aria-label={saved ? "Remove from your list" : "Save to your list"}
-      className="chip-glass grid size-9 place-items-center rounded-full text-white transition-all duration-150 hover:border-white/40 active:scale-90"
+      className="tap chip-glass grid size-9 place-items-center rounded-full text-white transition-all duration-150 hover:border-white/40 active:scale-90"
     >
       {saved ? <BookmarkCheck className="size-4 text-primary" /> : <Bookmark className="size-4" />}
     </button>

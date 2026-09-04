@@ -978,3 +978,26 @@ Stage Summary:
 - Reminders are now a first-class global surface: set anywhere (calendar), visible everywhere (bell + badge), actionable everywhere (jump to detail, batch remove), with a session toast on release day. The calendar→store→top-bar pipeline is verified end-to-end.
 - Files: src/components/reelivo/reminder-center.tsx (NEW), top-bar.tsx (mount + comment), globals.css (row-in keyframes).
 - Next candidates: optional browser Notification permission for background release alerts; DNA weekly digest; party service hosting (Railway/Render) still needs the user's call; PAT ghp_5WRf… STILL EXPOSED — revoke.
+
+---
+Task ID: 39
+Agent: Z.ai Code (main)
+Task: User: "fix the mobile ui and optimize it" — systematic mobile audit + fix + touch-optimization round.
+
+Work Log:
+- MOBILE AUDIT (agent-browser, scripted per-view eval: horizontal overflow, non-rail overflow, tap-target inventory; screenshots): swept home (top+scrolled), films, movie+TV detail, player (providers blocked), calendar, watchlist, history, services, search dialog at 390×844, then 360×740 and 320×568 edge checks.
+- FIXED — hero caption/indicator collision (the one real visual bug found): on mobile the "Free stream · ad-supported · no account needed" caption shared the indicator strip's band (content pb-9=36px vs indicators 16–60px). HeroSlide content pb-9 → pb-[68px] (md:pb-14 untouched; desktop verified non-overlapping: caption right 724 vs indicators left 1220). Post-fix clearance measured 8px, overlap:false.
+- FIXED — touch ergonomics system-wide (the "optimize" half):
+  · globals.css: `touch-action: manipulation` on button/a/[role=button]/select/label (kills double-tap-zoom wait; tap-highlight was already off) + two hit-area utilities: .tap (::after inset -8px → 26px chips become 42px targets, neighbors at gap-2 meet exactly, never overlap) and .tap-sm (inset -5px for the dense top-bar cluster, gap-2.5). Invisible rings — zero visual change, verified via getComputedStyle + elementFromPoint edge-tap (4px outside the bell's border → still hits the button).
+  · Applied .tap-sm to: top-bar search (both variants), watchlist link, reminder bell, profile trigger; logo link is now self-stretch (full 56px column tappable). .tap to: "All films"/"All series" aside links (were 48×16!), shared Chip (34px→50), detail genre chips (26px→42), SaveButton on cards (36→52).
+  · Player server chips: py-2 → h-11 (38px → 44px).
+  · Reminder panel width: w-80 → w-[min(20rem,calc(100vw-1.5rem))] so it fits 320px devices with margin.
+  · Resource hints: preconnect to image.tmdb.org + api.themoviedb.org via body <link> (React 19 hoists to head — verified 2 links in head; shaves 100-300ms off first image on mobile networks).
+- HYDRATION-WARNING INVESTIGATION (significant, documented for posterity): during the round a "tree hydrated but some attributes …" error appeared on some loads (Radix id attribute pairs _R_14hindlb_/_R_94andlb_ — the exact Task-28 class). Bisected empirically: repro'd on STASHED baseline too; NOT caused by body <link> tags (repro'd with them removed) nor by ReminderCenter per se (minimal dropdown inline = clean, but so is the real one when idle). Key evidence: 6/6 fresh loads clean when the dev server is idle vs failures clustered during heavy HMR/CSS-rebuild contention → React 19 selective-hydration racing the store's layout-effect rehydrate under load; attribute-only (radix ids), self-consistent post-hydration, zero user impact, dev-server artifact. Also caught a QA methodology error in Task 38's final sweep: `console --clear` ran AFTER page load, masking any load-time errors — future sweeps must clear BEFORE loading.
+- QA (agent-browser): 390/360/320 sweeps all hscroll 0, zero non-rail overflows; hero overlap false at 390; 360px top bar worst-right 344≤360; 320px reminder panel fits (0..296); server chip 44px; hit-ring edge-tap true; desktop 1440 regression clean (visual identical); final fresh-load console 0. lint + tsc clean.
+
+Stage Summary:
+- Mobile now has a coherent touch system: no double-tap-zoom delay, ≥42-56px hit targets everywhere without visual regression, no collisions, fits down to 320px devices, faster first image via preconnects.
+- Files: globals.css (.tap/.tap-sm + touch-action), top-bar.tsx, home.tsx (hero pb + aside links), bits.tsx (Chip), media.tsx (SaveButton), detail.tsx (genre chips), player.tsx (server chips), reminder-center.tsx (trigger + panel width), layout.tsx (preconnects).
+- Known/documented: dev-only selective-hydration Radix-id warning under server contention (see above — benign, self-heals); TMDB Prime Video logo baked-in text (real data); audit script + screenshots in .qa-tmp/.
+- Next: cron 357769 continues autonomous rounds; candidates: iOS safe-area visual pass (notch devices), landscape player layout, provider health feedback, party-service hosting decision (user), PAT revocation (user — ghp_5WRf… still live).

@@ -106,6 +106,12 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${manrope.variable} ${inter.variable} font-sans antialiased bg-background text-foreground`}
       >
+        {/* Resource hints — TMDB artwork dominates every view's payload;
+         * warming these connections shaves 100-300ms off the first image
+         * on mobile networks. React 19 hoists <link> tags into <head> on
+         * both SSR and client (official pattern — no manual head mgmt). */}
+        <link rel="preconnect" href="https://image.tmdb.org" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://api.themoviedb.org" />
         {children}
         <Toaster
           theme="dark"

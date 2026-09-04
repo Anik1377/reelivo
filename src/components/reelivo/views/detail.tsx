@@ -243,7 +243,7 @@ function TitleBlock({
               name: type === "movie" ? "films" : "series",
               genre: slugify(g.name),
             })}
-            className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-white/70 transition-colors duration-150 hover:border-primary/60 hover:text-primary"
+            className="tap rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-white/70 transition-colors duration-150 hover:border-primary/60 hover:text-primary"
             aria-label={`Browse ${g.name} ${type === "movie" ? "films" : "series"}`}
           >
             {g.name}

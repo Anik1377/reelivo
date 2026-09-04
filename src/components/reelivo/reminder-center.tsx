@@ -179,7 +179,7 @@ export function ReminderCenter() {
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         aria-label={`Release reminders${mounted && upcoming ? `, ${upcoming} upcoming` : ""}`}
-        className="relative grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/70 transition-all duration-150 hover:border-white/25 hover:text-white active:scale-90"
+        className="tap-sm relative grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/70 transition-all duration-150 hover:border-white/25 hover:text-white active:scale-90"
       >
         <Bell className="size-4" aria-hidden />
         {mounted && upcoming > 0 && (
@@ -195,7 +195,7 @@ export function ReminderCenter() {
       <DropdownMenuContent
         align="end"
         sideOffset={10}
-        className="w-80 overflow-hidden border-white/10 bg-popover/95 p-0 backdrop-blur-md"
+        className="w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden border-white/10 bg-popover/95 p-0 backdrop-blur-md"
       >
         <div className="border-b border-white/[0.06] px-3.5 pb-2.5 pt-3">
           <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink-dim">

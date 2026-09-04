@@ -148,7 +148,7 @@ export function Chip({
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-all duration-150 ${
+      className={`tap whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-all duration-150 ${
         selected
           ? "border-primary bg-primary text-primary-foreground font-semibold"
           : "border-white/10 bg-white/[0.04] text-ink-dim hover:border-white/25 hover:text-foreground"

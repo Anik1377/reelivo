@@ -488,7 +488,7 @@ export function PlayerView({
                     onClick={() => switchServer(sv.id)}
                     aria-pressed={activeSv}
                     aria-label={`${sv.name} — ${sv.blurb}`}
-                    className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-[13px] transition-all duration-150 active:scale-[0.97] ${
+                    className={`inline-flex h-11 shrink-0 items-center gap-2 rounded-full border px-3.5 text-[13px] transition-all duration-150 active:scale-[0.97] ${
                       activeSv
                         ? "border-primary/70 bg-primary/15 font-semibold text-white ring-1 ring-primary/30"
                         : "border-white/10 bg-white/[0.04] text-white/65 hover:border-white/25 hover:text-white"

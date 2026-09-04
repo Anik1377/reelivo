@@ -360,3 +360,38 @@ body {
     }
   }
 }
+
+/* ---- mobile touch ergonomics ----
+ * touch-action: manipulation kills the double-tap-zoom wait on iOS so rapid
+ * taps (play, save, chips) register instantly; tap-highlight is already off.
+ * .tap/.tap-sm expand hit areas to >=44px WITHOUT changing visuals — the
+ * ::after ring is invisible but catches touches. -8px ring: neighbors with
+ * gap-2 (8px) meet exactly at the midpoint, never overlap. -5px ring for the
+ * dense top-bar cluster (gap-2.5). */
+button,
+a[href],
+[role="button"],
+select,
+label {
+  touch-action: manipulation;
+}
+
+.tap {
+  position: relative;
+}
+.tap::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: inherit;
+}
+.tap-sm {
+  position: relative;
+}
+.tap-sm::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: inherit;
+}
+/* touch ergonomics end */

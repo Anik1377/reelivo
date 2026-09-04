@@ -83,7 +83,7 @@ function HeroSlide({
       <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/70 to-transparent" />
 
       <div className="absolute inset-x-0 bottom-0">
-        <div className="mx-auto max-w-[1400px] px-4 pb-9 md:px-8 md:pb-14 2xl:max-w-[1720px]">
+        <div className="mx-auto max-w-[1400px] px-4 pb-[68px] md:px-8 md:pb-14 2xl:max-w-[1720px]">
           <div className="max-w-2xl">
             <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-bold uppercase tracking-[0.18em]">
               <span className="text-primary">{kicker}</span>
@@ -1180,7 +1180,7 @@ export function HomeView() {
                 aside={
                   <a
                     href="#/films"
-                    className="text-[13px] text-ink-dim transition-colors hover:text-primary"
+                    className="tap text-[13px] text-ink-dim transition-colors hover:text-primary"
                   >
                     All films
                   </a>
@@ -1211,7 +1211,7 @@ export function HomeView() {
                 aside={
                   <a
                     href="#/series"
-                    className="text-[13px] text-ink-dim transition-colors hover:text-primary"
+                    className="tap text-[13px] text-ink-dim transition-colors hover:text-primary"
                   >
                     All series
                   </a>
