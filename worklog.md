@@ -907,3 +907,22 @@ Stage Summary:
 - Every URL the app emits (og:url, og:image, twitter, canonical, share links) is now canonically https for public hosts, regardless of what the proxy chain claims; five security headers shipped.
 - Files touched: src/app/page.tsx, src/app/layout.tsx, src/components/reelivo/views/detail.tsx, next.config.ts.
 - Unresolved/next: if the user's real domain serves plain http they MUST enable TLS at the host (only they control DNS/certs) — Cloudflare free tier is the one-click path; PAT ghp_5WRf… still exposed — revoke.
+
+---
+Task ID: 36
+Agent: Z.ai Code (main)
+Task: User confirmed deployment = Vercel. Verify the app is Vercel-safe after the "Not secure" fix; harden anything that misbehaves on serverless.
+
+Work Log:
+- Vercel fit check: metadata/OG/share https canonical (Task 35) is exactly right for Vercel (which serves TLS and sets x-forwarded-proto: https — our coercion is a safe no-op there); next.config security headers() deploy on Vercel unchanged; /api/tmdb + /api/ads are stateless serverless-safe fetches; manifest/sw/robots all relative ✓. output:"standalone" is harmless on Vercel.
+- FOUND + FIXED one real Vercel gap: the Watch-party panel assumed the socket mini-service (port 3003 via XTransformPort) exists — on serverless it never connects, and the sheet showed an eternal "Connecting to the party service…" with dead buttons.
+  - useWatchParty: new `failed` state — set by an 8s settle timer (handshake not landed ⇒ unreachable) and by `connect_error`; cleared on connect and on panel close/reopen (fresh probe). Returned alongside `connected`.
+  - PartySheet: honest amber notice when failed && !connected — "Watch-party chat runs on a realtime service this deployment doesn't include. Everything else — browsing, search, your list, playback — works normally." + status line "Couldn't reach the party service."; buttons stay disabled; no spinner loop.
+  - PlayerView wires party.failed through.
+- QA (agent-browser): failure path — party service intentionally DOWN → panel shows the amber notice + disabled buttons (screenshot party-failed.png), no eternal spinner. Recovery — service restarted (`bun --hot index.ts` in mini-services/party-service, socket.io handshake 200) and panel reopened THROUGH THE CADDY GATEWAY (localhost:81 — direct :3000 can't route XTransformPort, a test-env artifact, not an app bug) → status "Connected. Start a fresh room or jump into one with a code."; full round-trip: "Start a watch party" → room 5TE7TX created. lint + tsc clean.
+- Ops note: the party mini-service had DIED across sessions again — restarted manually. Same class of issue as .env evaporation; a supervisor/auto-restart for mini-services would prevent dead realtime in future sessions.
+
+Stage Summary:
+- App is now Vercel-deployment-safe: every emitted URL is https, security headers ship, all APIs are serverless-safe, and the one serverless-incompatible feature (watch-party realtime) degrades honestly instead of hanging.
+- Files touched: src/components/reelivo/views/player.tsx (hook + sheet + wiring).
+- Unresolved/next: user checklist (outside repo): ① redeploy on Vercel with this commit (auto if GitHub-connected), ② Vercel dashboard → Domains → confirm "Valid Configuration" (auto TLS for vercel.app AND custom domains), ③ old shared http links: re-scrape via Facebook Sharing Debugger, ④ optional: host the party service on Railway/Render if watch parties are wanted in production; PAT still exposed — revoke.

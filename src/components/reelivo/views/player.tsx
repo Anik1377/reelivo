@@ -684,6 +684,7 @@ export function PlayerView({
           playingTitle={detail.data ? labelOf(detail.data) : undefined}
           myName={myName}
           connected={party.connected}
+          failed={party.failed}
           room={party.room}
           members={party.members}
           messages={party.messages}
@@ -732,6 +733,10 @@ function pushSystemLine(list: PartyChatMessage[], text: string): PartyChatMessag
 
 function useWatchParty(open: boolean, myName: string) {
   const [connected, setConnected] = useState(false);
+  /** True when the realtime service is unreachable (e.g. serverless hosting
+   * like Vercel, which can't run the socket mini-service). Drives the panel's
+   * honest "unavailable" note instead of an eternal "Connecting…". */
+  const [failed, setFailed] = useState(false);
   const [room, setRoom] = useState<string | null>(null);
   const [members, setMembers] = useState<string[]>([]);
   const [messages, setMessages] = useState<PartyChatMessage[]>([]);
@@ -762,9 +767,20 @@ function useWatchParty(open: boolean, myName: string) {
     });
     socketRef.current = socket;
 
+    /* Honest failure signal: if the handshake hasn't landed within 8s the
+     * service is effectively unreachable (serverless deployments can't run
+     * it at all) — flip `failed` so the UI can say so. A late connect still
+     * clears it (onConnect). */
+    let settleTimer: number | undefined = window.setTimeout(() => {
+      if (!socket.connected) setFailed(true);
+    }, 8000);
+    const onConnectError = () => setFailed(true);
+    socket.on("connect_error", onConnectError);
+
     const onConnect = () => {
       setMySid(socket.id ?? "");
       setConnected(true);
+      setFailed(false);
       // Reconnect-safe: rejoin the room and refetch history through the ack.
       const r = roomRef.current;
       if (r) {
@@ -817,10 +833,12 @@ function useWatchParty(open: boolean, myName: string) {
     if (socket.connected) onConnect(); // pooled connection already open
 
     return () => {
+      if (settleTimer !== undefined) window.clearTimeout(settleTimer);
       socket.emit("party:leave");
       socket.disconnect();
       socketRef.current = null;
       setConnected(false);
+      setFailed(false); // fresh probe next time the panel opens
       setStartAt(null);
       setCountdown(null);
     };
@@ -927,6 +945,7 @@ function useWatchParty(open: boolean, myName: string) {
 
   return {
     connected,
+    failed,
     room,
     members,
     messages,
@@ -999,6 +1018,7 @@ function PartySheet({
   playingTitle,
   myName,
   connected,
+  failed,
   room,
   members,
   messages,
@@ -1014,6 +1034,7 @@ function PartySheet({
   playingTitle?: string;
   myName: string;
   connected: boolean;
+  failed: boolean;
   room: string | null;
   members: string[];
   messages: PartyChatMessage[];
@@ -1089,13 +1110,25 @@ function PartySheet({
           /* ---------------------------- no room yet ---------------------------- */
           <div className="styled-scrollbar flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
             <p
-              className={`text-xs ${connected ? "text-white/50" : "text-white/40"}`}
+              className={`text-xs ${connected ? "text-white/50" : failed ? "text-amber-200/90" : "text-white/40"}`}
               role="status"
             >
               {connected
                 ? "Connected. Start a fresh room or jump into one with a code."
-                : "Connecting to the party service…"}
+                : failed
+                  ? "Couldn't reach the party service."
+                  : "Connecting to the party service…"}
             </p>
+            {failed && !connected && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-amber-400/25 bg-amber-400/[0.06] px-3.5 py-3 text-[12.5px] leading-relaxed text-amber-100/90">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-300" aria-hidden />
+                <p>
+                  Watch-party chat runs on a realtime service this deployment doesn&apos;t
+                  include. Everything else — browsing, search, your list, playback — works
+                  normally.
+                </p>
+              </div>
+            )}
             <button
               type="button"
               onClick={onCreate}
