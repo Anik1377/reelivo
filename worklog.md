@@ -1174,3 +1174,31 @@ Stage Summary:
 - The intro is now a proper nostalgic LOGO REVEAL: the whole "reelivo." fades into focus like a film title card, a light sheens across the letterforms, the cyan stop ignites with a warm glow — scored with vinyl crackle, a tape-warbled Amaj9 pad, felt piano and a soft heartbeat instead of the cinematic impact. All UX guards preserved (once/session, skippable, autoplay-safe tap-for-sound, reduced motion, never over playback, ?introhold QA hook).
 - Lessons recorded: inline-positioned absolute anchors use the font-metric content area; fill-both 0% frames must be invisible; absolute-path screenshots bypass agent-browser's tmp (mind stale-file reads); finished animations clamp currentTime.
 - Next-phase candidates: the user's earlier explicit request — ad-playback timing (pre-roll ALWAYS on every playback + interval mid-rolls) still pending production verification; PWA splash screens matching the title-card intro; PAT ghp_5WRf… STILL exposed — revoke.
+
+---
+Task ID: 47 (REJECTED BY USER — feature removed)
+Agent: Z.ai Code (main)
+Task: User: "What you are doing right now is randomly adding videos from the internet and calling it a day. It's not actually what I meant. If you are not able to find reliable short drama sources — like you cannot embed any source or any website — just leave it or say that you cannot do it. Just don't put the stock footages on and say it's actual drama. It's wrong."
+
+Current status assessment:
+- An uncommitted "Reelivo Shorts" feature (self-labelled Task 47 in code comments) existed only in the local working tree — NOT on origin/main (verified: HEAD 730f470 == origin/main, so production never served it). It presented 8 fictional in-house "series" (~59 episodes) with written synopses, but every episode video was generic Mixkit stock b-roll. The synopses described scripted scenes that the footage does not contain — stock footage mispresented as actual drama. User correctly rejected this as dishonest.
+
+Provider research findings (honest, verified this session):
+- The popular reel-drama platforms (ReelShort, DramaBox, ShortMax, GoodShort, MoboReels, FlexTV, NetShort, DramaWave) are closed consumer apps: proprietary coin-paywalled catalogs, NO public APIs, NO embeddable players, no affiliate content feeds.
+- The only "working" APIs found are third-party scrapers (an Apify "Short Drama API" aggregating 40 providers; GitHub repos advertising "DramaBox API with direct playable video and VIP unlock"). These re-serve paywalled proprietary content without a license — unreliable AND illegitimate. Rejected on both grounds.
+- Genuine licensing exists but is a B2B contact-form deal (e.g. Anverio, Seastar Film: territory-based content packs) — no API, no self-serve embed, not integrable today.
+- White-label app builders (Muvi Shorts, Gizmott, Enveu, Vodlix, Flicknexs) are platforms to build your OWN app and require you to bring your own licensed content — they are not content sources.
+
+Work Log (removal):
+- Reverted all tracked-file changes for the feature: prisma/schema.prisma (ShortSeries/ShortEpisode models), app.tsx (routes), top-bar/mobile-nav (Shorts nav items), shortcuts-dialog, home.tsx (shorts rail), lib/hooks.ts (routes), lib/store.ts (shortsProgress/shortsLikes + actions). Also normalized mode-only drift on 4 brand/reminder files.
+- Deleted untracked files: src/lib/shorts.ts (provider abstraction + curated stock provider), views/shorts-hub.tsx, views/shorts-theater.tsx, src/app/api/shorts/* (3 routes), scripts/seed-shorts.ts.
+- `bun run db:push` — fake catalog tables dropped; SQLite now contains only User, Post, SharedList (verified via raw query).
+- Dev server restarted with a clean .next; lint clean.
+
+Verification:
+- git status: working tree CLEAN, identical to origin/main (730f470).
+- agent-browser: home renders; no `#/shorts` link anywhere; top bar restored to Home/Films/Series/Calendar/Services; console clean; TMDB APIs 200.
+
+Stage Summary / standing directive:
+- THE SHORTS FEATURE DOES NOT EXIST. Per user directive: no reliable, legitimate, embeddable short-drama source is available, so the feature is left out entirely. DO NOT rebuild it with stock footage, scraped platform content, or fictional "originals" — that was explicitly rejected as wrong. If a licensed provider feed is ever actually contracted (B2B deal with a distributor), the provider-interface idea could be revisited then, with real content only.
+- Unresolved/risks: none new. Standing items: PAT ghp_5WRf… still exposed — revoke; check webDevReview cron exists each session.
